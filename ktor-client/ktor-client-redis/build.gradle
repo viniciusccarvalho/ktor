@@ -1,0 +1,5 @@
+description = "CIO redis client"
+
+dependencies {
+    compile project(":ktor-network")
+}
