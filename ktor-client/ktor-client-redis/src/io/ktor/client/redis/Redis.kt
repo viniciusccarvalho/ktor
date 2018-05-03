@@ -3,11 +3,8 @@ package io.ktor.client.redis
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
-import kotlinx.io.core.*
 import java.io.*
 import java.net.*
-import java.nio.*
-import java.nio.ByteBuffer
 import java.nio.charset.*
 import java.util.*
 import java.util.concurrent.atomic.*
@@ -105,15 +102,14 @@ internal class RedisClient(
 ) : Redis {
     companion object {
         val MAX_RETRIES = 10
-        private const val LF = '\n'.toByte()
-        private val LF_BB = ByteBuffer.wrap(byteArrayOf(LF))
     }
-
-    val charsetDecoder = charset.newDecoder()
 
     lateinit var pipes: RedisCluster.Pipes
     private val initOnce = OnceAsync()
     private val commandQueue = AsyncTaskQueue()
+    private val respReader = RESP.Reader(bufferSize, charset)
+    private val respBuilder = RESP.Writer(charset)
+    private val cmd = BlobBuilder(bufferSize, charset)
 
     suspend fun reader(): ByteReadChannel = initOnce().reader
     suspend fun writer(): ByteWriteChannel = initOnce().writer
@@ -155,86 +151,30 @@ internal class RedisClient(
         return pipes
     }
 
-    suspend fun close() {
-        closeable().close()
-    }
+    suspend fun close() = closeable().close()
 
-    private val valueSB = StringBuilder(bufferSize)
-    private val valueCB = CharBuffer.allocate(bufferSize)
-    private val valueBB = ByteBuffer.allocate((bufferSize / charsetDecoder.maxCharsPerByte()).toInt())
-    private val tempCRLF = ByteArray(2)
-    private suspend fun readValue(): Any? {
-        val reader = reader()
-
-        valueSB.setLength(0)
-        val line = reader.readUntilString(
-            valueSB, LF_BB, charsetDecoder, valueCB, valueBB
-        ).trimEnd().toString()
-
-        if (line.isEmpty()) throw RedisResponseException("Empty value")
-        return when (line[0]) {
-            '+' -> line.substring(1) // Status reply
-            '-' -> throw RedisResponseException(line.substring(1)) // Error reply
-            ':' -> line.substring(1).toLong() // Integer reply
-            '$' -> { // Bulk replies
-                val bytesToRead = line.substring(1).toInt()
-                if (bytesToRead == -1) {
-                    null
-                } else {
-                    val data = reader.readBytesExact(bytesToRead)
-                    reader.readFully(tempCRLF) // CR LF
-                    data.toString(charset)
-                }
-            }
-            '*' -> { // Array reply
-                val arraySize = line.substring(1).toInt()
-                (0 until arraySize).map { readValue() }
-            }
-            else -> throw RedisResponseException("Unknown param type '${line[0]}'")
-        }
-    }
-
-    private val cmdChunk = BOS(bufferSize, charset)
-    private val cmd = BOS(bufferSize, charset)
     override suspend fun commandAny(vararg args: Any?): Any? {
         val writer = writer()
         stats.commandsQueued.incrementAndGet()
         return commandQueue {
             cmd.reset()
-            cmd.append('*')
-            cmd.append(args.size)
-            cmd.append('\r')
-            cmd.append('\n')
-            for (arg in args) {
-                cmdChunk.reset()
-                when (arg) {
-                    is Int -> cmdChunk.append(arg)
-                    is Long -> cmdChunk.append(arg)
-                    else -> cmdChunk.append(arg.toString())
-                }
-                // Length of the argument.
-                cmd.append('$')
-                cmd.append(cmdChunk.size())
-                cmd.append('\r')
-                cmd.append('\n')
-                cmd.append(cmdChunk)
-                cmd.append('\r')
-                cmd.append('\n')
-            }
+            respBuilder.writeCommandTo(args, cmd)
 
             // Common queue is not required align reading because Redis support pipelining : https://redis.io/topics/pipelining
-            val data = cmd.buf()
-            val dataLen = cmd.size()
             var retryCount = 0
 
             retry@ while (true) {
                 stats.commandsStarted.incrementAndGet()
                 try {
                     stats.commandsPreWritten.incrementAndGet()
-                    writer.writeFully(data, 0, dataLen) // @TODO: Maybe use writeAvailable instead of appending?
+
+                    cmd.writeTo(writer)
                     writer.flush()
+
                     stats.commandsWritten.incrementAndGet()
-                    val res = readValue()
+
+                    val res = respReader.readValue(reader())
+
                     stats.commandsFinished.incrementAndGet()
                     return@commandQueue res
                 } catch (t: IOException) {
@@ -270,104 +210,6 @@ suspend fun Redis.commandString(vararg args: Any?): String? = commandAny(*args)?
 suspend fun Redis.commandLong(vararg args: Any?): Long = commandAny(*args)?.toString()?.toLongOrNull() ?: 0L
 suspend fun Redis.commandUnit(vararg args: Any?): Unit = run { commandAny(*args) }
 
-/**
- * Optimized class for allocation-free String/ByteArray building
- */
-private class BOS(size: Int, val charset: Charset) : ByteArrayOutputStream(size) {
-    private val charsetEncoder = charset.newEncoder()
-    private val tempCB = CharBuffer.allocate(1024)
-    private val tempBB = ByteBuffer.allocate((tempCB.count() * charsetEncoder.maxBytesPerChar()).toInt())
-    private val tempSB = StringBuilder(64)
-
-    fun buf(): ByteArray {
-        return buf
-    }
-
-    fun append(value: Long) {
-        tempSB.setLength(0)
-        tempSB.append(value)
-        tempCB.clear()
-        tempSB.getChars(0, tempSB.length, tempCB.array(), 0)
-        tempCB.position(tempSB.length)
-        tempCB.flip()
-        append(tempCB)
-    }
-
-    fun append(value: Int) {
-        when (value) {
-            in 0..9 -> {
-                write(('0' + value).toInt())
-            }
-            in 10..99 -> {
-                write(('0' + (value / 10)).toInt())
-                write(('0' + (value % 10)).toInt())
-            }
-            else -> {
-                tempSB.setLength(0)
-                tempSB.append(value)
-                tempCB.clear()
-                tempSB.getChars(0, tempSB.length, tempCB.array(), 0)
-                tempCB.position(tempSB.length)
-                tempCB.flip()
-                append(tempCB)
-            }
-        }
-    }
-
-    fun append(char: Char) {
-        if (char.toInt() <= 0xFF) {
-            write(char.toInt())
-        } else {
-            tempCB.clear()
-            tempCB.put(char)
-            tempCB.flip()
-            append(tempCB)
-        }
-    }
-
-    fun append(str: String) {
-        val len = str.length
-        if (len == 0) return
-
-        val chunk = Math.min(len, 1024)
-
-        for (n in 0 until len step chunk) {
-            tempCB.clear()
-            val cend = Math.min(len, n + chunk)
-            str.toCharArray(tempCB.array(), 0, n, cend)
-            tempCB.position(cend - n)
-            tempCB.flip()
-            append(tempCB)
-        }
-    }
-
-    fun append(bb: ByteBuffer) {
-        while (bb.hasRemaining()) {
-            write(bb.get().toInt())
-        }
-    }
-
-    fun append(cb: CharBuffer) {
-        charsetEncoder.reset()
-        while (cb.hasRemaining()) {
-            tempBB.clear()
-            charsetEncoder.encode(cb, tempBB, false)
-            tempBB.flip()
-            append(tempBB)
-        }
-        tempBB.clear()
-        charsetEncoder.encode(cb, tempBB, true)
-        tempBB.flip()
-        append(tempBB)
-    }
-
-    fun append(that: BOS) {
-        this.write(that.buf(), 0, that.size())
-    }
-
-    override fun toString() = toByteArray().toString(charset)
-}
-
 private class OnceAsync {
     var deferred: kotlinx.coroutines.experimental.Deferred<Unit>? = null
 
@@ -379,7 +221,7 @@ private class OnceAsync {
     }
 }
 
-class AsyncTaskQueue {
+private class AsyncTaskQueue {
     var running = AtomicBoolean(false); private set
     private var queue = LinkedList<suspend () -> Unit>()
 
@@ -470,98 +312,3 @@ private class AsyncPool<T>(val maxItems: Int = Int.MAX_VALUE, val create: suspen
         waiter?.complete(Unit)
     }
 }
-
-// Simple version
-private suspend fun ByteReadChannel.readUntilString(
-    delimiter: Byte,
-    charset: Charset,
-    bufferSize: Int = 1024,
-    expectedMinSize: Int = 16
-): String {
-    return readUntilString(
-        out = StringBuilder(expectedMinSize),
-        delimiter = ByteBuffer.wrap(byteArrayOf(delimiter)),
-        decoder = charset.newDecoder(),
-        charBuffer = CharBuffer.allocate(bufferSize),
-        buffer = ByteBuffer.allocate(bufferSize)
-    ).toString()
-}
-
-// Allocation free version
-private suspend fun ByteReadChannel.readUntilString(
-    out: StringBuilder,
-    delimiter: ByteBuffer,
-    decoder: CharsetDecoder,
-    charBuffer: CharBuffer,
-    buffer: ByteBuffer
-): StringBuilder {
-    decoder.reset()
-    do {
-        buffer.clear()
-        readUntilDelimiter(delimiter, buffer)
-        buffer.flip()
-
-        if (!buffer.hasRemaining()) {
-            // EOF of delimiter encountered
-            //for (n in 0 until delimiter.remaining()) readByte()
-            skipDelimiter(delimiter)
-
-            charBuffer.clear()
-            decoder.decode(buffer, charBuffer, true)
-            charBuffer.flip()
-            out.append(charBuffer)
-            break
-        }
-
-        // do something with a buffer
-        while (buffer.hasRemaining()) {
-            charBuffer.clear()
-            decoder.decode(buffer, charBuffer, false)
-            charBuffer.flip()
-            out.append(charBuffer)
-        }
-    } while (true)
-    return out
-}
-
-private suspend fun ByteReadChannel.readUntil(delimiter: Byte, bufferSize: Int = 1024): ByteArray {
-    return readUntil(
-        out = ByteArrayOutputStream(),
-        delimiter = ByteBuffer.wrap(byteArrayOf(delimiter)),
-        bufferSize = bufferSize
-    ).toByteArray()
-}
-
-// Allocation free version
-private suspend fun ByteReadChannel.readUntil(
-    out: ByteArrayOutputStream,
-    delimiter: ByteBuffer,
-    bufferSize: Int = 1024
-): ByteArrayOutputStream {
-    out.reset()
-    val temp = ByteArray(bufferSize)
-    val buffer = ByteBuffer.allocate(bufferSize)
-    do {
-        buffer.clear()
-        readUntilDelimiter(delimiter, buffer)
-        buffer.flip()
-
-        if (!buffer.hasRemaining()) {
-            skipDelimiter(delimiter)
-
-            // EOF of delimiter encountered
-            break
-        }
-
-        var pos = 0
-        while (buffer.hasRemaining()) {
-            val rem = buffer.remaining()
-            buffer.get(temp, pos, rem)
-            pos += rem
-        }
-        out.write(temp, 0, pos)
-    } while (true)
-    return out
-}
-
-internal suspend fun ByteReadChannel.readBytesExact(count: Int): ByteArray = readPacket(count).readBytes(count)
