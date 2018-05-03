@@ -2,6 +2,7 @@ package io.ktor.client.redis
 
 import kotlinx.coroutines.experimental.io.*
 import kotlinx.io.core.*
+import kotlinx.io.pool.*
 import java.io.*
 import java.nio.*
 import java.nio.ByteBuffer
@@ -13,26 +14,35 @@ import java.nio.charset.*
 object RESP {
     private const val LF = '\n'.toByte()
     private val LF_BB = ByteBuffer.wrap(byteArrayOf(LF))
+    private val tempCRLF = ByteArray(2)
 
     /**
-     * Reader for the RESP protocol. You can call only one readValue at once.
+     * Reader for the RESP protocol.
      */
     class Reader(val bufferSize: Int = 1024, val charset: Charset) {
-        private val charsetDecoder = charset.newDecoder()
-        private val valueSB = StringBuilder(bufferSize)
-        private val valueCB = CharBuffer.allocate(bufferSize)
-        private val valueBB = ByteBuffer.allocate((bufferSize / charsetDecoder.maxCharsPerByte()).toInt())
-        private val tempCRLF = ByteArray(2)
+        private inner class State {
+            val charsetDecoder = charset.newDecoder()
+            val valueSB = StringBuilder(bufferSize)
+            val valueCB = CharBuffer.allocate(bufferSize)
+            val valueBB = ByteBuffer.allocate((bufferSize / charsetDecoder.maxCharsPerByte()).toInt())
+            fun reset() {
+                valueSB.setLength(0)
+            }
+        }
+
+        private val states: DefaultPool<State> = object : DefaultPool<State>(2048) {
+            override fun produceInstance(): State = State()
+            override fun clearInstance(instance: State): State = instance.apply { reset() }
+        }
 
         suspend fun readValue(reader: ByteReadChannel): Any? {
-            valueSB.setLength(0)
-            val line = reader.readUntilString(
-                valueSB, LF_BB, charsetDecoder, valueCB, valueBB
-            ).trimEnd().toString()
+            val line = states.use { state ->
+                reader.readUntilString(state.valueSB, LF_BB, state.charsetDecoder, state.valueCB, state.valueBB).trimEnd().toString()
+            }
 
             if (line.isEmpty()) throw RedisResponseException("Empty value")
             return when (line[0]) {
-                '+' -> line.substring(1) // Status reply
+                '+' -> line.substring(1) // Simple String reply
                 '-' -> throw RedisResponseException(line.substring(1)) // Error reply
                 ':' -> line.substring(1).toLong() // Integer reply
                 '$' -> { // Bulk replies
@@ -96,36 +106,101 @@ object RESP {
      * Writer for the RESP protocol.
      */
     class Writer(val charset: Charset) {
-        private val cmd = BlobBuilder(1024, charset)
-        private val chunk = BlobBuilder(1024, charset)
-
-        fun writeCommandTo(args: Array<out Any?>, out: ByteArrayOutputStream) {
-            fillCmd(args)
-            cmd.writeTo(out)
+        private val blobBuilders: DefaultPool<BlobBuilder> = object : DefaultPool<BlobBuilder>(2048) {
+            override fun produceInstance(): BlobBuilder = BlobBuilder(1024, charset)
+            override fun clearInstance(instance: BlobBuilder): BlobBuilder = instance.apply { reset() }
         }
 
-        private fun fillCmd(args: Array<out Any?>) {
-            cmd.reset()
-            cmd.append('*')
-            cmd.append(args.size)
-            cmd.append('\r')
-            cmd.append('\n')
-            for (arg in args) {
-                chunk.reset()
-                when (arg) {
-                    is Int -> chunk.append(arg)
-                    is Long -> chunk.append(arg)
-                    else -> chunk.append(arg.toString())
-                }
-                // Length of the argument.
-                cmd.append('$')
-                cmd.append(chunk.size())
-                cmd.append('\r')
-                cmd.append('\n')
-                cmd.append(chunk)
-                cmd.append('\r')
-                cmd.append('\n')
+        fun buildValue(value: Any?, temp: ByteArrayOutputStream = ByteArrayOutputStream()): ByteArray {
+            temp.reset()
+            writeValue(value, temp)
+            return temp.toByteArray()
+        }
+
+        fun writeValue(value: Any?, out: OutputStream) {
+            blobBuilders.use { cmd ->
+                writeValue(value, cmd)
+                cmd.writeTo(out)
             }
         }
+
+        private fun writeValue(value: Any?, out: BlobBuilder) {
+            when (value) {
+                null -> out.append("+(nil)\r\n")
+                is Int -> writeValue(value.toLong(), out)
+                is Long -> {
+                    out.append(':')
+                    out.append(value)
+                    out.append('\r')
+                    out.append('\n')
+                }
+                is ByteArray -> {
+                    blobBuilders.use { chunk ->
+                        chunk.write(value)
+                        out.append('$')
+                        out.append(chunk.size())
+                        out.append('\r')
+                        out.append('\n')
+                        out.append(chunk)
+                        out.append('\r')
+                        out.append('\n')
+                    }
+                }
+                is String -> {
+                    if (!value.contains('\n') && !value.contains('\r')) {
+                        // Simple String
+                        out.append('+')
+                        out.append(value)
+                        out.append('\r')
+                        out.append('\n')
+                    } else {
+                        blobBuilders.use { chunk ->
+                            chunk.append(value)
+                            out.append('$')
+                            out.append(chunk.size())
+                            out.append('\r')
+                            out.append('\n')
+                            out.append(chunk)
+                            out.append('\r')
+                            out.append('\n')
+                        }
+                    }
+                }
+                is Throwable -> {
+                    out.append('-')
+                    out.append((value.message ?: "Error").replace("\r", "").replace("\n", ""))
+                    out.append('\r')
+                    out.append('\n')
+                }
+                is List<*> -> {
+                    out.append('*')
+                    out.append(value.size)
+                    out.append('\r')
+                    out.append('\n')
+                    for (item in value) writeValue(item, out)
+                }
+                is Array<*> -> {
+                    out.append('*')
+                    out.append(value.size)
+                    out.append('\r')
+                    out.append('\n')
+                    for (item in value) writeValue(item, out)
+                }
+                else -> {
+                    error("Unsupported $value to write")
+                }
+            }
+        }
+    }
+}
+
+class RedisResponseException(message: String) : Exception(message)
+
+private inline fun <T : Any, R> ObjectPool<T>.use(block: (T) -> R): R {
+    val item = borrow()
+    try {
+        return block(item)
+    } finally {
+        recycle(item)
     }
 }

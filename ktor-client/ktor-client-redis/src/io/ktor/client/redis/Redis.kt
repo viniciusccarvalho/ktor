@@ -15,8 +15,6 @@ import kotlin.coroutines.experimental.*
  *
  * Specific commands are exposed as extension methods.
  */
-// String, thrown ResponseException, Long, List<*>
-
 interface Redis {
     /**
      * Executes a raw command. Each [args] will be sent as a String.
@@ -158,7 +156,7 @@ internal class RedisClient(
         stats.commandsQueued.incrementAndGet()
         return commandQueue {
             cmd.reset()
-            respBuilder.writeCommandTo(args, cmd)
+            respBuilder.writeValue(args, cmd)
 
             // Common queue is not required align reading because Redis support pipelining : https://redis.io/topics/pipelining
             var retryCount = 0
@@ -199,8 +197,6 @@ internal class RedisClient(
         }
     }
 }
-
-class RedisResponseException(message: String) : Exception(message)
 
 @Suppress("UNCHECKED_CAST")
 suspend fun Redis.commandArray(vararg args: Any?): List<String> =
