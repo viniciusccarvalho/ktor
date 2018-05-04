@@ -1,5 +1,7 @@
 package io.ktor.client.redis
 
+suspend fun Redis.ping() = commandString("ping")
+
 suspend fun Redis.append(key: String, value: String) = commandString("append", key, value)
 suspend fun Redis.auth(password: String) = commandString("auth", password)
 suspend fun Redis.bgrewriteaof() = commandString("bgrewriteaof")

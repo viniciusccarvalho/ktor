@@ -50,7 +50,7 @@ fun Redis(
                 val host = addresses[index] // Round Robin
                 val socket = tcpClientFactory.connect(host)
                 if (password != null) client.auth(password)
-                RedisCluster.Pipes(socket.openReadChannel(), socket.openWriteChannel(autoFlush = true), socket)
+                RedisClient.Pipes(socket.openReadChannel(), socket.openWriteChannel(autoFlush = true), socket)
             },
             bufferSize = bufferSize,
             charset = charset,
@@ -81,12 +81,6 @@ internal class RedisCluster(
     internal val charset: Charset = Charsets.UTF_8,
     internal val clientFactory: suspend () -> RedisClient
 ) : Redis {
-    data class Pipes(
-        val reader: ByteReadChannel,
-        val writer: ByteWriteChannel,
-        val closeable: Closeable
-    )
-
     private val clientPool = AsyncPool(maxItems = maxConnections) { clientFactory() }
 
     override suspend fun commandAny(vararg args: Any?): Any? = clientPool.tempAlloc { it.commandAny(*args) }
@@ -96,13 +90,19 @@ internal class RedisClient(
     private val charset: Charset = Charsets.UTF_8,
     private val stats: RedisStats = RedisStats(),
     private val bufferSize: Int = 0x1000,
-    private val reconnect: suspend (RedisClient) -> RedisCluster.Pipes
+    private val reconnect: suspend (RedisClient) -> RedisClient.Pipes
 ) : Redis {
+    data class Pipes(
+        val reader: ByteReadChannel,
+        val writer: ByteWriteChannel,
+        val closeable: Closeable
+    )
+
     companion object {
         val MAX_RETRIES = 10
     }
 
-    lateinit var pipes: RedisCluster.Pipes
+    lateinit var pipes: RedisClient.Pipes
     private val initOnce = OnceAsync()
     private val commandQueue = AsyncTaskQueue()
     private val respReader = RESP.Reader(bufferSize, charset)
@@ -140,7 +140,7 @@ internal class RedisClient(
         }
     }
 
-    private suspend fun initOnce(): RedisCluster.Pipes {
+    private suspend fun initOnce(): RedisClient.Pipes {
         initOnce {
             commandQueue {
                 reconnectRetrying()
