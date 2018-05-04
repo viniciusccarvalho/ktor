@@ -16,6 +16,8 @@ import kotlin.coroutines.experimental.*
  * Specific commands are exposed as extension methods.
  */
 interface Redis {
+    val charset: Charset get() = Charsets.UTF_8
+
     /**
      * Executes a raw command. Each [args] will be sent as a String.
      *
@@ -25,6 +27,14 @@ interface Redis {
      * It may throw a [RedisResponseException]
      */
     suspend fun commandAny(vararg args: Any?): Any?
+
+    suspend fun capturePipes(): Redis.Pipes = TODO("This client doesn't implement redis subscription")
+
+    data class Pipes(
+        val reader: ByteReadChannel,
+        val writer: ByteWriteChannel,
+        val closeable: Closeable
+    )
 }
 
 /**
@@ -50,7 +60,7 @@ fun Redis(
                 val host = addresses[index] // Round Robin
                 val socket = tcpClientFactory.connect(host)
                 if (password != null) client.auth(password)
-                RedisClient.Pipes(socket.openReadChannel(), socket.openWriteChannel(autoFlush = true), socket)
+                Redis.Pipes(socket.openReadChannel(), socket.openWriteChannel(autoFlush = true), socket)
             },
             bufferSize = bufferSize,
             charset = charset,
@@ -78,34 +88,34 @@ class RedisStats {
  */
 internal class RedisCluster(
     internal val maxConnections: Int = 50,
-    internal val charset: Charset = Charsets.UTF_8,
+    override val charset: Charset = Charsets.UTF_8,
     internal val clientFactory: suspend () -> RedisClient
 ) : Redis {
     private val clientPool = AsyncPool(maxItems = maxConnections) { clientFactory() }
 
     override suspend fun commandAny(vararg args: Any?): Any? = clientPool.tempAlloc { it.commandAny(*args) }
+
+    override suspend fun capturePipes(): Redis.Pipes {
+        // Creates a new client for the subscription instead of reusing one,
+        // since it will enter in a subscription state
+        return clientFactory().capturePipes()
+    }
 }
 
 internal class RedisClient(
-    private val charset: Charset = Charsets.UTF_8,
+    override val charset: Charset = Charsets.UTF_8,
     private val stats: RedisStats = RedisStats(),
     private val bufferSize: Int = 0x1000,
-    private val reconnect: suspend (RedisClient) -> RedisClient.Pipes
+    private val reconnect: suspend (RedisClient) -> Redis.Pipes
 ) : Redis {
-    data class Pipes(
-        val reader: ByteReadChannel,
-        val writer: ByteWriteChannel,
-        val closeable: Closeable
-    )
-
     companion object {
         val MAX_RETRIES = 10
     }
 
-    lateinit var pipes: RedisClient.Pipes
+    lateinit var _pipes: Redis.Pipes
     private val initOnce = OnceAsync()
     private val commandQueue = AsyncTaskQueue()
-    private val respReader = RESP.Reader(bufferSize, charset)
+    private val respReader = RESP.Reader(charset, bufferSize)
     private val respBuilder = RESP.Writer(charset)
     private val cmd = BlobBuilder(bufferSize, charset)
 
@@ -115,7 +125,7 @@ internal class RedisClient(
 
     suspend fun reconnect() {
         try {
-            pipes = reconnect(this@RedisClient)
+            _pipes = reconnect(this@RedisClient)
         } catch (e: Throwable) {
             println("Failed to connect, retrying... ${e.message}")
             throw e
@@ -140,18 +150,19 @@ internal class RedisClient(
         }
     }
 
-    private suspend fun initOnce(): RedisClient.Pipes {
+    private suspend fun initOnce(): Redis.Pipes {
         initOnce {
             commandQueue {
                 reconnectRetrying()
             }
         }
-        return pipes
+        return _pipes
     }
 
     suspend fun close() = closeable().close()
 
     override suspend fun commandAny(vararg args: Any?): Any? {
+        if (capturedPipes) error("Can't emit plain redis commands after entering into a redis sub-state")
         val writer = writer()
         stats.commandsQueued.incrementAndGet()
         return commandQueue {
@@ -196,11 +207,20 @@ internal class RedisClient(
             }
         }
     }
+
+    private var capturedPipes: Boolean = false
+    override suspend fun capturePipes(): Redis.Pipes {
+        capturedPipes = true
+        return initOnce()
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
-suspend fun Redis.commandArray(vararg args: Any?): List<String> =
+suspend fun Redis.commandArrayString(vararg args: Any?): List<String> =
     (commandAny(*args) as List<String>?) ?: listOf()
+
+suspend fun Redis.commandArrayLong(vararg args: Any?): List<Long> =
+    (commandAny(*args) as List<Long>?) ?: listOf()
 
 suspend fun Redis.commandString(vararg args: Any?): String? = commandAny(*args)?.toString()
 suspend fun Redis.commandLong(vararg args: Any?): Long = commandAny(*args)?.toString()?.toLongOrNull() ?: 0L

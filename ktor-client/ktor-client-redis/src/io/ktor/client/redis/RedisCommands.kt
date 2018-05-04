@@ -30,7 +30,7 @@ suspend fun Redis.zadd(key: String, vararg scores: Pair<String, Double>): Long {
 
 suspend fun Redis.zadd(key: String, member: String, score: Double): Long = commandLong("zadd", key, score, member)
 suspend fun Redis.sadd(key: String, member: String): Long = commandLong("sadd", key, member)
-suspend fun Redis.smembers(key: String): List<String> = commandArray("smembers", key)
+suspend fun Redis.smembers(key: String): List<String> = commandArrayString("smembers", key)
 
 suspend fun Redis.zincrby(key: String, member: String, score: Double) = commandString("zincrby", key, score, member)!!
 suspend fun Redis.zcard(key: String): Long = commandLong("zcard", key)
@@ -38,11 +38,11 @@ suspend fun Redis.zrevrank(key: String, member: String): Long = commandLong("zre
 suspend fun Redis.zscore(key: String, member: String): Long = commandLong("zscore", key, member)
 
 suspend fun Redis.hgetall(key: String): Map<String, String> {
-    return commandArray("hgetall", key).listOfPairsToMap()
+    return commandArrayString("hgetall", key).listOfPairsToMap()
 }
 
 suspend fun Redis.zrevrange(key: String, start: Long, stop: Long): Map<String, Double> {
-    return commandArray("zrevrange", key, start, stop, "WITHSCORES").listOfPairsToMap().mapValues { "${it.value}".toDouble() }
+    return commandArrayString("zrevrange", key, start, stop, "WITHSCORES").listOfPairsToMap().mapValues { "${it.value}".toDouble() }
 }
 
 private fun List<Any?>.listOfPairsToMap(): Map<String, String> {

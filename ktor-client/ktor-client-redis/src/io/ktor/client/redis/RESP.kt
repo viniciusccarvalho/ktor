@@ -19,7 +19,7 @@ object RESP {
     /**
      * Reader for the RESP protocol.
      */
-    class Reader(val bufferSize: Int = 1024, val charset: Charset) {
+    class Reader(val charset: Charset, val bufferSize: Int = 1024) {
         private inner class State {
             val charsetDecoder = charset.newDecoder()
             val valueSB = StringBuilder(bufferSize)
@@ -105,7 +105,7 @@ object RESP {
     /**
      * Writer for the RESP protocol.
      */
-    class Writer(val charset: Charset) {
+    class Writer(val charset: Charset, val forceBulk: Boolean = true) {
         private val blobBuilders: DefaultPool<BlobBuilder> = object : DefaultPool<BlobBuilder>(2048) {
             override fun produceInstance(): BlobBuilder = BlobBuilder(1024, charset)
             override fun clearInstance(instance: BlobBuilder): BlobBuilder = instance.apply { reset() }
@@ -118,6 +118,13 @@ object RESP {
         }
 
         fun writeValue(value: Any?, out: OutputStream) {
+            blobBuilders.use { cmd ->
+                writeValue(value, cmd)
+                cmd.writeTo(out)
+            }
+        }
+
+        suspend fun writeValue(value: Any?, out: ByteWriteChannel) {
             blobBuilders.use { cmd ->
                 writeValue(value, cmd)
                 cmd.writeTo(out)
@@ -147,13 +154,7 @@ object RESP {
                     }
                 }
                 is String -> {
-                    if (!value.contains('\n') && !value.contains('\r')) {
-                        // Simple String
-                        out.append('+')
-                        out.append(value)
-                        out.append('\r')
-                        out.append('\n')
-                    } else {
+                    if (forceBulk || value.contains('\n') || value.contains('\r')) {
                         blobBuilders.use { chunk ->
                             chunk.append(value)
                             out.append('$')
@@ -164,6 +165,12 @@ object RESP {
                             out.append('\r')
                             out.append('\n')
                         }
+                    } else {
+                        // Simple String
+                        out.append('+')
+                        out.append(value)
+                        out.append('\r')
+                        out.append('\n')
                     }
                 }
                 is Throwable -> {
