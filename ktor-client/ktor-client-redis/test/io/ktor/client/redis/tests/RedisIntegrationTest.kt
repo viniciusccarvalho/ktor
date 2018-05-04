@@ -7,6 +7,7 @@ import kotlinx.coroutines.experimental.*
 import org.junit.Test
 import java.io.*
 import java.net.*
+import java.nio.charset.*
 import kotlin.test.*
 
 class RedisIntegrationTest {
@@ -34,7 +35,7 @@ class RedisIntegrationTest {
     }
 }
 
-abstract class RedisMiniServer : Closeable {
+abstract class RedisMiniServer(val charset: Charset = Charsets.UTF_8) : Closeable {
     private lateinit var serverSocket: ServerSocket
     private lateinit var job: Job
 
@@ -48,8 +49,8 @@ abstract class RedisMiniServer : Closeable {
                 launch {
                     val read = socket.openReadChannel()
                     val write = socket.openWriteChannel()
-                    val respReader = RESP.Reader(1024, Charsets.UTF_8)
-                    val respWriter = RESP.Writer(Charsets.UTF_8)
+                    val respReader = RESP.Reader(charset)
+                    val respWriter = RESP.Writer(charset)
                     while (true) {
                         val info = respReader.readValue(read)
                         val result = try {

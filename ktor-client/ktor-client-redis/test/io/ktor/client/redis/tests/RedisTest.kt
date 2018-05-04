@@ -16,7 +16,7 @@ class RedisTest {
             val clientWrite = ByteChannel(true)
             val redis = RedisCluster(1) {
                 RedisClient {
-                    RedisCluster.Pipes(
+                    Redis.Pipes(
                         serverWrite, clientWrite, Closeable { }
                     )
                 }
