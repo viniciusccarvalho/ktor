@@ -69,19 +69,15 @@ fun Redis(
     }
 }
 
-class RedisStats {
-    val commandsQueued = AtomicLong()
-    val commandsStarted = AtomicLong()
-    val commandsPreWritten = AtomicLong()
-    val commandsWritten = AtomicLong()
-    val commandsErrored = AtomicLong()
-    val commandsFailed = AtomicLong()
-    val commandsFinished = AtomicLong()
-
-    override fun toString(): String {
-        return "Stats(commandsQueued=$commandsQueued, commandsStarted=$commandsStarted, commandsPreWritten=$commandsPreWritten, commandsWritten=$commandsWritten, commandsErrored=$commandsErrored, commandsFinished=$commandsFinished)"
-    }
-}
+data class RedisStats(
+    val commandsQueued: AtomicLong = AtomicLong(),
+    val commandsStarted: AtomicLong = AtomicLong(),
+    val commandsPreWritten: AtomicLong = AtomicLong(),
+    val commandsWritten: AtomicLong = AtomicLong(),
+    val commandsErrored: AtomicLong = AtomicLong(),
+    val commandsFailed: AtomicLong = AtomicLong(),
+    val commandsFinished: AtomicLong = AtomicLong()
+)
 
 /**
  * Redis client implementing the redis wire protocol defined in https://redis.io/topics/protocol
