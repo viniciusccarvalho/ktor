@@ -133,64 +133,36 @@ object RESP {
 
         private fun writeValue(value: Any?, out: BlobBuilder) {
             when (value) {
-                null -> out.append("+(nil)\r\n")
-                is Int -> writeValue(value.toLong(), out)
-                is Long -> {
-                    out.append(':')
-                    out.append(value)
-                    out.append('\r')
-                    out.append('\n')
-                }
+                null -> out.append("+(nil)").appendEol()
+                is Int -> out.append(':').append(value).appendEol()
+                is Long -> out.append(':').append(value).appendEol()
                 is ByteArray -> {
                     blobBuilders.use { chunk ->
                         chunk.write(value)
-                        out.append('$')
-                        out.append(chunk.size())
-                        out.append('\r')
-                        out.append('\n')
-                        out.append(chunk)
-                        out.append('\r')
-                        out.append('\n')
+                        out.append('$').append(chunk.size()).appendEol()
+                        out.append(chunk).appendEol()
                     }
                 }
                 is String -> {
                     if (forceBulk || value.contains('\n') || value.contains('\r')) {
                         blobBuilders.use { chunk ->
                             chunk.append(value)
-                            out.append('$')
-                            out.append(chunk.size())
-                            out.append('\r')
-                            out.append('\n')
-                            out.append(chunk)
-                            out.append('\r')
-                            out.append('\n')
+                            out.append('$').append(chunk.size()).appendEol()
+                            out.append(chunk).appendEol()
                         }
                     } else {
-                        // Simple String
-                        out.append('+')
-                        out.append(value)
-                        out.append('\r')
-                        out.append('\n')
+                        out.append('+').append(value).appendEol()
                     }
                 }
                 is Throwable -> {
-                    out.append('-')
-                    out.append((value.message ?: "Error").replace("\r", "").replace("\n", ""))
-                    out.append('\r')
-                    out.append('\n')
+                    out.append('-').append((value.message ?: "Error").replace("\r", "").replace("\n", "")).appendEol()
                 }
                 is List<*> -> {
-                    out.append('*')
-                    out.append(value.size)
-                    out.append('\r')
-                    out.append('\n')
+                    out.append('*').append(value.size).appendEol()
                     for (item in value) writeValue(item, out)
                 }
                 is Array<*> -> {
-                    out.append('*')
-                    out.append(value.size)
-                    out.append('\r')
-                    out.append('\n')
+                    out.append('*').append(value.size).appendEol()
                     for (item in value) writeValue(item, out)
                 }
                 else -> {
@@ -198,6 +170,8 @@ object RESP {
                 }
             }
         }
+
+        private fun BlobBuilder.appendEol() = append('\r').append('\n')
     }
 }
 

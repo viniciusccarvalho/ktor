@@ -23,7 +23,7 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
 
     fun buf(): ByteArray = buf
 
-    fun append(value: Long) {
+    fun append(value: Long) = this.apply {
         tempSB.setLength(0)
         tempSB.append(value)
         tempCB.clear()
@@ -33,7 +33,7 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
         append(tempCB)
     }
 
-    fun append(value: Int) {
+    fun append(value: Int) = this.apply {
         when (value) {
             in 0..9 -> {
                 write(('0' + value).toInt())
@@ -54,7 +54,7 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
         }
     }
 
-    fun append(char: Char) {
+    fun append(char: Char) = this.apply {
         if (char.toInt() <= 0xFF) {
             write(char.toInt())
         } else {
@@ -65,9 +65,9 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
         }
     }
 
-    fun append(str: String) {
+    fun append(str: String) = this.apply {
         val len = str.length
-        if (len == 0) return
+        if (len == 0) return@apply
 
         val chunk = Math.min(len, 1024)
 
@@ -81,13 +81,13 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
         }
     }
 
-    fun append(bb: ByteBuffer) {
+    fun append(bb: ByteBuffer) = this.apply {
         while (bb.hasRemaining()) {
             write(bb.get().toInt())
         }
     }
 
-    fun append(cb: CharBuffer) {
+    fun append(cb: CharBuffer) = this.apply {
         charsetEncoder.reset()
         while (cb.hasRemaining()) {
             tempBB.clear()
@@ -101,7 +101,7 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
         append(tempBB)
     }
 
-    fun append(that: BlobBuilder) {
+    fun append(that: BlobBuilder) = this.apply {
         this.write(that.buf(), 0, that.size())
     }
 

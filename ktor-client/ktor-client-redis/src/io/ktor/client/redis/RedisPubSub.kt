@@ -1,6 +1,5 @@
 package io.ktor.client.redis
 
-import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.channels.*
 import java.io.*
 import java.nio.charset.*
