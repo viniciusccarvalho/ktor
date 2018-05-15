@@ -1,4 +1,4 @@
-package io.ktor.client.redis
+package io.ktor.client.redis.engine.cio
 
 import kotlinx.coroutines.experimental.io.*
 import java.io.*
@@ -15,7 +15,7 @@ import java.nio.charset.*
  * - Allows to get the current size of the builder
  * - Allows to reset it for reusing
  */
-internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStream(size) {
+class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStream(size) {
     private val charsetEncoder = charset.newEncoder()
     private val tempCB = CharBuffer.allocate(1024)
     private val tempBB = ByteBuffer.allocate((tempCB.count() * charsetEncoder.maxBytesPerChar()).toInt())
@@ -108,6 +108,6 @@ internal class BlobBuilder(size: Int, val charset: Charset) : ByteArrayOutputStr
     override fun toString() = toByteArray().toString(charset)
 }
 
-internal suspend fun BlobBuilder.writeTo(channel: ByteWriteChannel) {
+suspend fun BlobBuilder.writeTo(channel: ByteWriteChannel) {
     channel.writeFully(buf(), 0, size())
 }

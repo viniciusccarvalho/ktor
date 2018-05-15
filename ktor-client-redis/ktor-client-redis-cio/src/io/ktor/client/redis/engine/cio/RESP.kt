@@ -1,5 +1,6 @@
-package io.ktor.client.redis
+package io.ktor.client.redis.engine.cio
 
+import io.ktor.client.redis.*
 import kotlinx.coroutines.experimental.io.*
 import kotlinx.io.core.*
 import kotlinx.io.pool.*
@@ -37,7 +38,10 @@ object RESP {
 
         suspend fun readValue(reader: ByteReadChannel): Any? {
             val line = states.use { state ->
-                reader.readUntilString(state.valueSB, LF_BB, state.charsetDecoder, state.valueCB, state.valueBB).trimEnd().toString()
+                reader.readUntilString(
+                    state.valueSB,
+                    LF_BB, state.charsetDecoder, state.valueCB, state.valueBB
+                ).trimEnd().toString()
             }
 
             if (line.isEmpty()) throw RedisResponseException("Empty value")
@@ -107,7 +111,9 @@ object RESP {
      */
     class Writer(val charset: Charset, val forceBulk: Boolean = true) {
         private val blobBuilders: DefaultPool<BlobBuilder> = object : DefaultPool<BlobBuilder>(2048) {
-            override fun produceInstance(): BlobBuilder = BlobBuilder(1024, charset)
+            override fun produceInstance(): BlobBuilder =
+                BlobBuilder(1024, charset)
+
             override fun clearInstance(instance: BlobBuilder): BlobBuilder = instance.apply { reset() }
         }
 
@@ -174,8 +180,6 @@ object RESP {
         private fun BlobBuilder.appendEol() = append('\r').append('\n')
     }
 }
-
-class RedisResponseException(message: String) : Exception(message)
 
 private inline fun <T : Any, R> ObjectPool<T>.use(block: (T) -> R): R {
     val item = borrow()

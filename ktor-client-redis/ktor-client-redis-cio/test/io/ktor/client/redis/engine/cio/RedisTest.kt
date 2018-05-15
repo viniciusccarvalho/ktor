@@ -1,4 +1,4 @@
-package io.ktor.client.redis.tests
+package io.ktor.client.redis.engine.cio
 
 import io.ktor.client.redis.*
 import kotlinx.coroutines.experimental.*
@@ -14,13 +14,12 @@ class RedisTest {
         runBlocking {
             val serverWrite = ByteChannel(true)
             val clientWrite = ByteChannel(true)
-            val redis = RedisCluster(1) {
-                RedisClient {
-                    Redis.Pipes(
-                        serverWrite, clientWrite, Closeable { }
-                    )
-                }
-            }
+
+            val redis = RedisCIOClient({
+                RedisCIOClient.Pipes(
+                    serverWrite, clientWrite, Closeable { }
+                )
+            })
 
             serverWrite.writeStringUtf8("-ERROR\r\n")
             assertFailsWith<RedisResponseException>("ERROR") {

@@ -2,5 +2,5 @@ description = ''
 
 dependencies {
     compile project(":ktor-network")
-    compile project(":ktor-client:ktor-client-redis-core")
+    compile project(":ktor-client-redis:ktor-client-redis-core")
 }

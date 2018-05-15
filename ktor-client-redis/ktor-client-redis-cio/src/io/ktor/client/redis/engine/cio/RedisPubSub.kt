@@ -1,12 +1,13 @@
-package io.ktor.client.redis
+package io.ktor.client.redis.engine.cio
 
+import io.ktor.client.redis.*
 import kotlinx.coroutines.experimental.channels.*
 import java.io.*
 import java.nio.charset.*
 import java.util.concurrent.atomic.*
 
-class RedisSubscription private constructor(
-    private val pipes: Redis.Pipes,
+internal class RedisSubscription private constructor(
+    private val pipes: RedisCIOClient.Pipes,
     private val psubscriptions: AtomicLong,
     val messages: ReceiveChannel<Message>,
     val charset: Charset
@@ -18,7 +19,7 @@ class RedisSubscription private constructor(
     data class Message(val pattern: String?, val channel: String, val content: String)
 
     companion object {
-        suspend fun open(pipes: Redis.Pipes, charset: Charset): RedisSubscription {
+        internal suspend fun open(pipes: RedisCIOClient.Pipes, charset: Charset): RedisSubscription {
             val respReader = RESP.Reader(charset)
             val psubscriptions = AtomicLong(0L)
 
@@ -27,10 +28,22 @@ class RedisSubscription private constructor(
                     val info = respReader.readValue(pipes.reader) as List<Any?>
                     when (info.firstOrNull()) {
                         "message" -> {
-                            channel.send(Message(null, info[1].toString(), info[2].toString()))
+                            channel.send(
+                                Message(
+                                    null,
+                                    info[1].toString(),
+                                    info[2].toString()
+                                )
+                            )
                         }
                         "pmessage" -> {
-                            channel.send(Message(info[1].toString(), info[2].toString(), info[3].toString()))
+                            channel.send(
+                                Message(
+                                    info[1].toString(),
+                                    info[2].toString(),
+                                    info[3].toString()
+                                )
+                            )
                         }
                         "subscribe", "unsubscribe", "psubscribe", "punsubscribe" -> {
                             val channel = info[1].toString()
@@ -60,19 +73,12 @@ class RedisSubscription private constructor(
 }
 
 /**
- * Posts a message to the given channel.
- *
- * Returns the number of clients that received the message.
- */
-suspend fun Redis.publish(channel: String, message: String): Long = commandLong("publish", channel, message)
-
-/**
  * Subscribes the client to the specified channels.
  *
  * Once the client enters the subscribed state it is not supposed to issue any other commands,
  * except for additional SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE and PUNSUBSCRIBE commands.
  */
-suspend fun Redis.subscribe(vararg channels: String): RedisSubscription =
+internal suspend fun RedisCIOClient.subscribe(vararg channels: String): RedisSubscription =
     RedisSubscription.open(capturePipes(), charset).subscribe(*channels)
 
 /**
@@ -85,7 +91,7 @@ suspend fun Redis.subscribe(vararg channels: String): RedisSubscription =
  * h[ae]llo subscribes to hello and hallo, but not hillo
  * Use \ to escape special characters if you want to match them verbatim.
  */
-suspend fun Redis.psubscribe(vararg patterns: String): RedisSubscription =
+internal suspend fun RedisCIOClient.psubscribe(vararg patterns: String): RedisSubscription =
     RedisSubscription.open(capturePipes(), charset).psubscribe(*patterns)
 
 /**

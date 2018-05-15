@@ -1,9 +1,10 @@
-package io.ktor.client.redis.tests
+package io.ktor.client.redis.engine.cio
 
 import io.ktor.client.redis.*
 import io.ktor.network.sockets.*
 import io.ktor.network.sockets.ServerSocket
 import kotlinx.coroutines.experimental.*
+import kotlinx.coroutines.experimental.channels.*
 import org.junit.Test
 import java.io.*
 import java.net.*
@@ -27,7 +28,7 @@ class RedisIntegrationTest {
                     return "OK"
                 }
             }.listen()
-            val redis = Redis(listOf(InetSocketAddress("127.0.0.1", server.localPort)))
+            val redis = Redis(RedisCIOEngine, "127.0.0.1", server.localPort)
             redis.set("hello", "world")
             assertEquals("world", redis.get("hello"))
             server.close()
