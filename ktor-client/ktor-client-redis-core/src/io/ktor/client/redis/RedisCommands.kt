@@ -1,5 +1,12 @@
 package io.ktor.client.redis
 
+/**
+ * Posts a message to the given channel.
+ *
+ * Returns the number of clients that received the message.
+ */
+suspend fun Redis.publish(channel: String, message: String): Long = commandLong("publish", channel, message)
+
 suspend fun Redis.ping() = commandString("ping")
 
 suspend fun Redis.append(key: String, value: String) = commandString("append", key, value)
