@@ -50,8 +50,8 @@ suspend fun resolve(server: InetAddress, host: String, type: Type, tcp: Boolean)
         }
     } else {
         aSocket().udp().connect(remoteAddress).use { endpoint ->
-            val output = endpoint.outgoing.asWriteChannel(remoteAddress)
-            val input = endpoint.incoming.asReadChannel()
+            val output = endpoint.outgoing.asWriteChannel(remoteAddress).apply { writeByteOrder = ByteOrder.BIG_ENDIAN }
+            val input = endpoint.incoming.asReadChannel().apply { readByteOrder = ByteOrder.BIG_ENDIAN }
 
             doResolve(output, input, host, type, tcp = false)
         }
