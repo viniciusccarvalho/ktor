@@ -5,11 +5,6 @@ import kotlin.reflect.*
 
 actual typealias Type = java.lang.reflect.Type
 
-actual class TypeInfo constructor(
-    actual val type: KClass<*>,
-    actual val reifiedType: Type
-)
-
 @PublishedApi()
 internal open class TypeBase<T>
 

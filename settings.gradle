@@ -1,4 +1,6 @@
 rootProject.name = 'ktor'
+enableFeaturePreview('GRADLE_METADATA')
+
 include ':ktor-server:ktor-server-core'
 include ':ktor-server:ktor-server-tests'
 include ':ktor-server:ktor-server-host-common'
@@ -13,8 +15,10 @@ include ':ktor-server'
 include ':ktor-client'
 include ':ktor-client:ktor-client-core'
 include ':ktor-client:ktor-client-core:ktor-client-core-jvm'
+include ':ktor-client:ktor-client-core:ktor-client-core-ios'
 include ':ktor-client:ktor-client-tests'
 include ':ktor-client:ktor-client-apache'
+include ':ktor-client:ktor-client-ios'
 include ':ktor-client:ktor-client-android'
 include ':ktor-client:ktor-client-cio'
 include ':ktor-client:ktor-client-jetty'
@@ -38,11 +42,14 @@ include ':ktor-features:ktor-auth-jwt'
 include ':ktor-features'
 include ':ktor-http'
 include ':ktor-http:ktor-http-jvm'
+include ':ktor-http:ktor-http-ios'
 include ':ktor-http:ktor-http-cio'
 include ':ktor-utils'
+include ':ktor-utils:ktor-utils-jvm'
 include ':ktor-network'
 include ':ktor-network:ktor-network-tls'
 include ':ktor-utils:ktor-utils-jvm'
+include ':ktor-utils:ktor-utils-ios'
 
 project(':ktor-server').projectDir = "$rootDir/ktor-server" as File
 project(':ktor-server:ktor-server-core').projectDir = "$rootDir/ktor-server/ktor-server-core" as File
@@ -58,9 +65,11 @@ project(':ktor-server:ktor-server-benchmarks').projectDir = "$rootDir/ktor-serve
 project(':ktor-client').projectDir = "$rootDir/ktor-client" as File
 project(':ktor-client:ktor-client-core').projectDir = "$rootDir/ktor-client/ktor-client-core" as File
 project(':ktor-client:ktor-client-core:ktor-client-core-jvm').projectDir = "$rootDir/ktor-client/ktor-client-core/ktor-client-core-jvm" as File
+project(':ktor-client:ktor-client-core:ktor-client-core-ios').projectDir = "$rootDir/ktor-client/ktor-client-core/ktor-client-core-ios" as File
 project(':ktor-client:ktor-client-tests').projectDir = "$rootDir/ktor-client/ktor-client-tests" as File
 project(':ktor-client:ktor-client-apache').projectDir = "$rootDir/ktor-client/ktor-client-apache" as File
 project(':ktor-client:ktor-client-android').projectDir = "$rootDir/ktor-client/ktor-client-android" as File
+project(':ktor-client:ktor-client-ios').projectDir = "$rootDir/ktor-client/ktor-client-ios" as File
 project(':ktor-client:ktor-client-cio').projectDir = "$rootDir/ktor-client/ktor-client-cio" as File
 project(':ktor-client:ktor-client-jetty').projectDir = "$rootDir/ktor-client/ktor-client-jetty" as File
 project(':ktor-client:ktor-client-mock').projectDir = "$rootDir/ktor-client/ktor-client-mock" as File
@@ -83,8 +92,10 @@ project(':ktor-features:ktor-auth-ldap').projectDir = "$rootDir/ktor-features/kt
 project(':ktor-features:ktor-auth-jwt').projectDir = "$rootDir/ktor-features/ktor-auth-jwt" as File
 project(':ktor-http').projectDir = "$rootDir/ktor-http" as File
 project(':ktor-http:ktor-http-jvm').projectDir = "$rootDir/ktor-http/ktor-http-jvm" as File
+project(':ktor-http:ktor-http-ios').projectDir = "$rootDir/ktor-http/ktor-http-ios" as File
 project(':ktor-http:ktor-http-cio').projectDir = "$rootDir/ktor-http/ktor-http-cio" as File
 project(':ktor-network').projectDir = "$rootDir/ktor-network" as File
 project(':ktor-network:ktor-network-tls').projectDir = "$rootDir/ktor-network/ktor-network-tls" as File
 project(':ktor-utils').projectDir = "$rootDir/ktor-utils" as File
 project(':ktor-utils:ktor-utils-jvm').projectDir = "$rootDir/ktor-utils/ktor-utils-jvm" as File
+project(':ktor-utils:ktor-utils-ios').projectDir = "$rootDir/ktor-utils/ktor-utils-ios" as File
