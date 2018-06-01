@@ -1,6 +1,6 @@
 package io.ktor.client.engine.cio
 
-import io.ktor.client.cio.*
+import io.ktor.cio.*
 import io.ktor.http.*
 import io.ktor.http.cio.*
 import io.ktor.network.sockets.*
@@ -61,7 +61,7 @@ internal class ConnectionPipeline(
                     val contentLength = response.headers[HttpHeaders.ContentLength]?.toString()?.toLong() ?: -1L
                     val transferEncoding = response.headers[HttpHeaders.TransferEncoding]
                     val connectionType = ConnectionOptions.parse(response.headers[HttpHeaders.Connection])
-                    shouldClose = connectionType == ConnectionOptions.Close
+                    shouldClose = (connectionType == ConnectionOptions.Close || transferEncoding == "chunked")
 
                     val writerJob = writer(Unconfined, autoFlush = true) {
                         parseHttpBody(contentLength, transferEncoding, connectionType, inputChannel, channel)

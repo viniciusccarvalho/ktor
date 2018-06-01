@@ -5,7 +5,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.response.*
 import io.ktor.client.utils.*
-import io.ktor.content.*
+import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.http.HttpMethod
 import io.ktor.util.*
@@ -15,6 +15,7 @@ import org.eclipse.jetty.http.*
 import org.eclipse.jetty.http2.api.*
 import org.eclipse.jetty.http2.frames.*
 import java.io.*
+import java.nio.*
 import java.util.*
 
 

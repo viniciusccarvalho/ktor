@@ -12,6 +12,7 @@ include ':ktor-server:ktor-server-benchmarks'
 include ':ktor-server'
 include ':ktor-client'
 include ':ktor-client:ktor-client-core'
+include ':ktor-client:ktor-client-core:ktor-client-core-jvm'
 include ':ktor-client:ktor-client-tests'
 include ':ktor-client:ktor-client-apache'
 include ':ktor-client:ktor-client-cio'
@@ -35,10 +36,12 @@ include ':ktor-features:ktor-auth-ldap'
 include ':ktor-features:ktor-auth-jwt'
 include ':ktor-features'
 include ':ktor-http'
+include ':ktor-http:ktor-http-jvm'
 include ':ktor-http:ktor-http-cio'
 include ':ktor-utils'
 include ':ktor-network'
 include ':ktor-network:ktor-network-tls'
+include ':ktor-utils:ktor-utils-jvm'
 
 project(':ktor-server').projectDir = "$rootDir/ktor-server" as File
 project(':ktor-server:ktor-server-core').projectDir = "$rootDir/ktor-server/ktor-server-core" as File
@@ -53,6 +56,7 @@ project(':ktor-server:ktor-server-cio').projectDir = "$rootDir/ktor-server/ktor-
 project(':ktor-server:ktor-server-benchmarks').projectDir = "$rootDir/ktor-server/ktor-server-benchmarks" as File
 project(':ktor-client').projectDir = "$rootDir/ktor-client" as File
 project(':ktor-client:ktor-client-core').projectDir = "$rootDir/ktor-client/ktor-client-core" as File
+project(':ktor-client:ktor-client-core:ktor-client-core-jvm').projectDir = "$rootDir/ktor-client/ktor-client-core/ktor-client-core-jvm" as File
 project(':ktor-client:ktor-client-tests').projectDir = "$rootDir/ktor-client/ktor-client-tests" as File
 project(':ktor-client:ktor-client-apache').projectDir = "$rootDir/ktor-client/ktor-client-apache" as File
 project(':ktor-client:ktor-client-cio').projectDir = "$rootDir/ktor-client/ktor-client-cio" as File
@@ -76,7 +80,9 @@ project(':ktor-features:ktor-auth').projectDir = "$rootDir/ktor-features/ktor-au
 project(':ktor-features:ktor-auth-ldap').projectDir = "$rootDir/ktor-features/ktor-auth-ldap" as File
 project(':ktor-features:ktor-auth-jwt').projectDir = "$rootDir/ktor-features/ktor-auth-jwt" as File
 project(':ktor-http').projectDir = "$rootDir/ktor-http" as File
+project(':ktor-http:ktor-http-jvm').projectDir = "$rootDir/ktor-http/ktor-http-jvm" as File
 project(':ktor-http:ktor-http-cio').projectDir = "$rootDir/ktor-http/ktor-http-cio" as File
 project(':ktor-network').projectDir = "$rootDir/ktor-network" as File
 project(':ktor-network:ktor-network-tls').projectDir = "$rootDir/ktor-network/ktor-network-tls" as File
 project(':ktor-utils').projectDir = "$rootDir/ktor-utils" as File
+project(':ktor-utils:ktor-utils-jvm').projectDir = "$rootDir/ktor-utils/ktor-utils-jvm" as File
