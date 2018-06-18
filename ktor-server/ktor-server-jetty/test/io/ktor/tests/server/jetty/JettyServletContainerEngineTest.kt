@@ -9,10 +9,10 @@ import org.junit.*
 import javax.servlet.*
 
 class JettyAsyncServletContainerEngineTest :
-    EngineTestSuite<JettyApplicationEngineBase, JettyApplicationEngineBase.Configuration>(Servlet(async = true))
+    EngineTestSuite<JettyApplicationEngineBase.Configuration>(Servlet(async = true))
 
 class JettyBlockingServletContainerEngineTest :
-    EngineTestSuite<JettyApplicationEngineBase, JettyApplicationEngineBase.Configuration>(Servlet(async = false)) {
+    EngineTestSuite<JettyApplicationEngineBase.Configuration>(Servlet(async = false)) {
     @Ignore
     override fun testUpgrade() {}
 }
@@ -37,14 +37,14 @@ private class JettyServletApplicationEngine(
             setAttribute(ServletApplicationEngine.ApplicationEngineEnvironmentAttributeKey, environment)
 
             insertHandler(ServletHandler().apply {
-                val h = ServletHolder("ktor-servlet", ServletApplicationEngine::class.java).apply {
+                val holder = ServletHolder("ktor-servlet", ServletApplicationEngine::class.java).apply {
                     isAsyncSupported = async
                     registration.setLoadOnStartup(1)
                     registration.setMultipartConfig(MultipartConfigElement(System.getProperty("java.io.tmpdir")))
                     registration.setAsyncSupported(async)
                 }
 
-                addServlet(h)
+                addServlet(holder)
                 addServletMapping(ServletMapping().apply {
                     pathSpecs = arrayOf("*.", "/*")
                     servletName = "ktor-servlet"

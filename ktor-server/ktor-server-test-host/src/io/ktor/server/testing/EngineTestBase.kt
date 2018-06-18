@@ -4,18 +4,21 @@ import io.ktor.application.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.*
+import io.ktor.client.engine.apache.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.jetty.*
 import io.ktor.client.request.*
 import io.ktor.client.response.*
 import io.ktor.features.*
-import io.ktor.network.tls.*
 import io.ktor.network.tls.certificates.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
+import io.ktor.server.netty.*
 import kotlinx.coroutines.experimental.*
 import org.junit.*
 import org.junit.rules.*
+import org.junit.runner.*
+import org.junit.runners.*
 import org.junit.runners.model.*
 import org.slf4j.*
 import java.io.*
@@ -26,8 +29,12 @@ import javax.net.ssl.*
 import kotlin.test.*
 
 
-abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(
-    val applicationEngineFactory: ApplicationEngineFactory<TEngine, TConfiguration>
+@RunWith(Parameterized::class)
+abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
+    val applicationEngineFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
+    val clientEngineFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
+    val enableHttp2: Boolean,
+    val enableSsl: Boolean
 ) {
     protected val isUnderDebugger: Boolean =
         java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments.orEmpty()
@@ -35,12 +42,10 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
 
     protected var port = findFreePort()
     protected var sslPort = findFreePort()
-    protected var server: TEngine? = null
+    protected var server: ApplicationEngine? = null
     protected var callGroupSize = -1
         private set
     protected val exceptions = ArrayList<Throwable>()
-    protected var enableHttp2: Boolean = System.getProperty("enable.http2") == "true"
-    protected var enableSsl: Boolean = System.getProperty("enable.ssl") != "false"
 
     private val allConnections = CopyOnWriteArrayList<HttpURLConnection>()
 
@@ -87,20 +92,20 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
     fun tearDownBase() {
         allConnections.forEach { it.disconnect() }
         testLog.trace("Disposing server on port $port (SSL $sslPort)")
-        (server as? ApplicationEngine)?.stop(1000, 5000, TimeUnit.MILLISECONDS)
+        server?.stop(1000, 5000, TimeUnit.MILLISECONDS)
         if (exceptions.isNotEmpty()) {
             fail("Server exceptions logged, consult log output for more information")
         }
     }
 
-    protected open fun createServer(log: Logger?, module: Application.() -> Unit): TEngine {
+    protected open fun createServer(log: Logger?, module: Application.() -> Unit): ApplicationEngine {
         val _port = this.port
         val environment = applicationEngineEnvironment {
             val delegate = LoggerFactory.getLogger("ktor.test")
             this.log = log ?: object : Logger by delegate {
-                override fun error(msg: String?, t: Throwable?) {
-                    t?.let { exceptions.add(it) }
-                    delegate.error(msg, t)
+                override fun error(msg: String?, cause: Throwable?) {
+                    cause?.let { exceptions.add(it) }
+                    delegate.error(msg, cause)
                 }
             }
 
@@ -130,7 +135,7 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
         application.install(Routing, routingConfigurer)
     }
 
-    protected fun createAndStartServer(log: Logger? = null, routingConfigurer: Routing.() -> Unit): TEngine {
+    protected fun createAndStartServer(log: Logger? = null, routingConfigurer: Routing.() -> Unit): ApplicationEngine {
         var lastFailures = emptyList<Throwable>()
         for (attempt in 1..5) {
             val server = createServer(log) {
@@ -156,7 +161,7 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
         throw MultipleFailureException(lastFailures)
     }
 
-    private fun startServer(server: TEngine): List<Throwable> {
+    private fun startServer(server: ApplicationEngine): List<Throwable> {
         this.server = server
 
         val l = CountDownLatch(1)
@@ -217,11 +222,7 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
         block: suspend HttpResponse.(Int) -> Unit
     ) = runBlocking {
         withTimeout(timeout.seconds, TimeUnit.SECONDS) {
-            HttpClient(CIO.config {
-                https.also {
-                    it.trustManager = trustManager
-                }
-            }).use { client ->
+            HttpClient(clientEngineFactory).use { client ->
                 client.call(url, builder).response.use { response ->
                     block(response, port)
                 }
@@ -250,6 +251,7 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
         lateinit var sslContext: SSLContext
         lateinit var trustManager: X509TrustManager
 
+
         @BeforeClass
         @JvmStatic
         fun setupAll() {
@@ -259,6 +261,27 @@ abstract class EngineTestBase<TEngine : ApplicationEngine, TConfiguration : Appl
             sslContext = SSLContext.getInstance("TLS")
             sslContext.init(null, tmf.trustManagers, null)
             trustManager = tmf.trustManagers.first { it is X509TrustManager } as X509TrustManager
+        }
+
+        private val clients = arrayOf(
+            CIO.config {
+                https.also {
+                    it.trustManager = trustManager
+                }
+            },
+            Apache.config {
+                sslContext = Companion.sslContext
+            }
+        ).asSequence()
+
+        private val servers = arrayOf(io.ktor.server.jetty.Jetty, Netty, io.ktor.server.cio.CIO).asSequence()
+
+        @Parameterized.Parameters(name = "server:{0}, client:{1}")
+        @JvmStatic
+        fun parameters() = servers.flatMap { server ->
+            clients.map { client ->
+                arrayOf(server, client)
+            }
         }
 
         private suspend fun CoroutineScope.waitForPort(port: Int) {

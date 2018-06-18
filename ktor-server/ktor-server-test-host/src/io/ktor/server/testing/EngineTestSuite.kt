@@ -31,12 +31,11 @@ import java.util.concurrent.atomic.*
 import java.util.zip.*
 import kotlin.concurrent.*
 import kotlin.coroutines.experimental.*
-import kotlin.system.*
 import kotlin.test.*
 
-abstract class EngineTestSuite<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(
-        hostFactory: ApplicationEngineFactory<TEngine, TConfiguration>
-) : EngineTestBase<TEngine, TConfiguration>(hostFactory) {
+abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
+        hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>
+) : EngineTestBase<TConfiguration>(hostFactory) {
     @Test
     fun testTextContent() {
         createAndStartServer {

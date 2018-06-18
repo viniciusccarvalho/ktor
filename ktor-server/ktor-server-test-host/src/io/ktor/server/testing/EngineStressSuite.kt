@@ -25,7 +25,9 @@ import kotlin.coroutines.experimental.*
 import kotlin.test.*
 
 @RunWith(StressSuiteRunner::class)
-abstract class EngineStressSuite<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(hostFactory: ApplicationEngineFactory<TEngine, TConfiguration>) : EngineTestBase<TEngine, TConfiguration>(hostFactory) {
+abstract class EngineStressSuite<TConfiguration: ApplicationEngine.Configuration>(
+    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>
+) : EngineTestBase<TConfiguration>(hostFactory) {
     init {
         enableHttp2 = false
         enableSsl = false

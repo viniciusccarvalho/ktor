@@ -23,7 +23,9 @@ import java.util.*
 import java.util.concurrent.*
 import kotlin.test.*
 
-abstract class WebSocketEngineSuite<TEngine : ApplicationEngine, TConfiguration : ApplicationEngine.Configuration>(hostFactory: ApplicationEngineFactory<TEngine, TConfiguration>) : EngineTestBase<TEngine, TConfiguration>(hostFactory) {
+abstract class WebSocketEngineSuite<TConfiguration : ApplicationEngine.Configuration>(
+    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>
+) : EngineTestBase<TConfiguration>(hostFactory) {
     @get:Rule
     val errors = ErrorCollector()
 
