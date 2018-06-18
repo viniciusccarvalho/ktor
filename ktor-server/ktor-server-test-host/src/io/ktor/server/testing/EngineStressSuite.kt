@@ -1,6 +1,7 @@
 package io.ktor.server.testing
 
 import io.ktor.application.*
+import io.ktor.client.engine.*
 import io.ktor.client.response.*
 import io.ktor.content.*
 import io.ktor.http.*
@@ -13,6 +14,7 @@ import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
 import kotlinx.io.streams.*
 import org.junit.*
+import org.junit.Assume.*
 import org.junit.Test
 import org.junit.runner.*
 import org.junit.runners.model.*
@@ -26,11 +28,13 @@ import kotlin.test.*
 
 @RunWith(StressSuiteRunner::class)
 abstract class EngineStressSuite<TConfiguration: ApplicationEngine.Configuration>(
-    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>
-) : EngineTestBase<TConfiguration>(hostFactory) {
+    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
+    clientEngineFactory: HttpClientEngineFactory<*>,
+    mode: TestMode
+) : EngineTestBase<TConfiguration>(hostFactory, clientEngineFactory, mode) {
+
     init {
-        enableHttp2 = false
-        enableSsl = false
+        assumeTrue(TestMode.HTTP == mode)
     }
 
 //    private val timeMillis: Long = TimeUnit.SECONDS.toMillis(10L)

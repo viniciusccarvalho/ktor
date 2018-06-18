@@ -28,13 +28,11 @@ import java.util.concurrent.*
 import javax.net.ssl.*
 import kotlin.test.*
 
-
 @RunWith(Parameterized::class)
 abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
     val applicationEngineFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
     val clientEngineFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
-    val enableHttp2: Boolean,
-    val enableSsl: Boolean
+    val mode: TestMode
 ) {
     protected val isUnderDebugger: Boolean =
         java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments.orEmpty()
@@ -74,13 +72,14 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
         val method = this.javaClass.getMethod(test.methodName) ?: fail("Method ${test.methodName} not found")
 
         if (method.isAnnotationPresent(Http2Only::class.java)) {
-            Assume.assumeTrue("http2 is not enabled", enableHttp2)
-        }
-        if (method.isAnnotationPresent(NoHttp2::class.java)) {
-            enableHttp2 = false
+            Assume.assumeTrue("http2 is not enabled", mode == TestMode.HTTP2)
         }
 
-        if (enableHttp2) {
+        if (method.isAnnotationPresent(NoHttp2::class.java)) {
+            Assume.assumeTrue("http2 is enabled enabled", mode != TestMode.HTTP2)
+        }
+
+        if (mode == TestMode.HTTP2) {
             Class.forName("sun.security.ssl.ALPNExtension", true, null)
         }
 
@@ -110,7 +109,7 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
             }
 
             connector { port = _port }
-            if (enableSsl) {
+            if (mode != TestMode.HTTP) {
                 sslConnector(keyStore, "mykey", { "changeit".toCharArray() }, { "changeit".toCharArray() }) {
                     this.port = sslPort
                     this.keyStorePath = keyStoreFile.absoluteFile
@@ -194,18 +193,13 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
     }
 
     protected fun findFreePort() = ServerSocket(0).use { it.localPort }
+
     protected fun withUrl(
         path: String, builder: HttpRequestBuilder.() -> Unit = {}, block: suspend HttpResponse.(Int) -> Unit
-    ) {
-        withUrl(URL("http://127.0.0.1:$port$path"), port, builder, block)
-
-        if (enableSsl) {
-            withUrl(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
-        }
-
-        if (enableHttp2 && enableSsl) {
-            withHttp2(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
-        }
+    ): Unit = when (mode) {
+        TestMode.HTTP -> withUrl(URL("http://127.0.0.1:$port$path"), port, builder, block)
+        TestMode.HTTPS -> withUrl(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
+        TestMode.HTTP2 -> withHttp2(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
     }
 
     protected fun socket(block: Socket.() -> Unit) {
@@ -274,15 +268,26 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
             }
         ).asSequence()
 
-        private val servers = arrayOf(io.ktor.server.jetty.Jetty, Netty, io.ktor.server.cio.CIO).asSequence()
-
-        @Parameterized.Parameters(name = "server:{0}, client:{1}")
+        @Parameterized.Parameters(name = "server:{0}, client:{1}, mode:{2}")
         @JvmStatic
-        fun parameters() = servers.flatMap { server ->
-            clients.map { client ->
-                arrayOf(server, client)
-            }
-        }
+        fun parameters() = arrayOf(
+            arrayOf(Netty, Apache, TestMode.HTTP),
+            arrayOf(Netty, CIO, TestMode.HTTP),
+            arrayOf(io.ktor.server.cio.CIO, Apache, TestMode.HTTP),
+            arrayOf(io.ktor.server.cio.CIO, CIO, TestMode.HTTP),
+
+            arrayOf(io.ktor.server.jetty.Jetty, Apache, TestMode.HTTP),
+            arrayOf(io.ktor.server.jetty.Jetty, CIO, TestMode.HTTP),
+
+            arrayOf(Netty, Apache, TestMode.HTTPS),
+            arrayOf(Netty, CIO, TestMode.HTTPS),
+
+            arrayOf(io.ktor.server.jetty.Jetty, Apache, TestMode.HTTPS),
+            arrayOf(io.ktor.server.jetty.Jetty, CIO, TestMode.HTTPS),
+
+            arrayOf(Netty, Jetty, TestMode.HTTP2),
+            arrayOf(io.ktor.server.jetty.Jetty, Jetty, TestMode.HTTP2)
+        )
 
         private suspend fun CoroutineScope.waitForPort(port: Int) {
             do {

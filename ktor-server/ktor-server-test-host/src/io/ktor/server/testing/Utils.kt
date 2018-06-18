@@ -29,3 +29,9 @@ fun TestApplicationResponse.contentType(): ContentType {
     val contentTypeHeader = requireNotNull(headers[HttpHeaders.ContentType])
     return ContentType.parse(contentTypeHeader)
 }
+
+enum class TestMode {
+    HTTP,
+    HTTPS,
+    HTTP2
+}

@@ -11,12 +11,5 @@ class TomcatEngineTest : EngineTestSuite<TomcatApplicationEngine.Configuration>(
         listOf("org.apache.coyote", "org.apache.tomcat", "org.apache.catalina").map {
             Logger.getLogger(it).apply { level = Level.WARNING }
         }
-        enableHttp2 = false
-    }
-
-    @Ignore
-    @Test
-    override fun testUpgrade() {
-        super.testUpgrade()
     }
 }
