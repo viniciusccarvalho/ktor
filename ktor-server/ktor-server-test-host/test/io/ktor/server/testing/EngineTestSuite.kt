@@ -14,7 +14,6 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
-import io.ktor.server.tomcat.*
 import io.ktor.util.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
@@ -37,8 +36,8 @@ import kotlin.concurrent.*
 import kotlin.coroutines.experimental.*
 import kotlin.test.*
 
-abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
-    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
+class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
+    hostFactory: EngineFactoryWithConfig<ApplicationEngine, TConfiguration>,
     clientFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
     mode: TestMode
 ) : EngineTestBase<TConfiguration>(hostFactory, clientFactory, mode) {
@@ -72,8 +71,9 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    @Http2Only
     fun testServerPush() {
+        Assume.assumeTrue(mode == TestMode.HTTP2)
+
         createAndStartServer {
             get("/child") {
                 call.respondText("child")
@@ -624,8 +624,9 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    @NoHttp2
     fun testMultipartFileUpload() {
+        Assume.assumeFalse(mode == TestMode.HTTP2)
+
         createAndStartServer {
             post("/") {
                 val response = StringBuilder()
@@ -672,8 +673,9 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    @NoHttp2
     fun testMultipartFileUploadLarge() {
+        Assume.assumeFalse(mode == TestMode.HTTP2)
+
         val numberOfLines = 10000
 
         createAndStartServer {
@@ -1243,7 +1245,7 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    open fun testBlockingDeadlock() {
+    fun testBlockingDeadlock() {
         createAndStartServer {
             get("/") {
                 call.respondWrite(ContentType.Text.Plain.withCharset(Charsets.ISO_8859_1)) {
@@ -1309,8 +1311,8 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    open fun testUpgrade() {
-        Assume.assumeFalse(server is TomcatApplicationEngine)
+    fun testUpgrade() {
+        Assume.assumeFalse(server == TomcatServer || server == JettyBlockingServletServer)
 
         createAndStartServer {
             get("/up") {
@@ -1406,8 +1408,9 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    @NoHttp2
-    open fun testChunked() {
+    fun testChunked() {
+        Assume.assumeFalse(mode == TestMode.HTTP2)
+
         val data = ByteArray(16 * 1024, { it.toByte() })
         val size = data.size.toLong()
 
@@ -1491,9 +1494,10 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
     }
 
     @Test
-    @NoHttp2
     @Ignore
-    open fun testChunkedWrongLength() {
+    fun testChunkedWrongLength() {
+        Assume.assumeFalse(mode == TestMode.HTTP2)
+
         val data = ByteArray(16 * 1024, { it.toByte() })
         val doubleSize = (data.size * 2).toString()
         val halfSize = (data.size / 2).toString()
@@ -1602,6 +1606,6 @@ abstract class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>
 
     companion object {
         val classesDir = "build/classes/kotlin/main"
-        val coreClassesDir = "ktor-server/ktor-server-core/${classesDir}"
+        val coreClassesDir = "ktor-server/ktor-server-core/$classesDir"
     }
 }

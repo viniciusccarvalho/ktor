@@ -27,8 +27,8 @@ import kotlin.coroutines.experimental.*
 import kotlin.test.*
 
 @RunWith(StressSuiteRunner::class)
-abstract class EngineStressSuite<TConfiguration: ApplicationEngine.Configuration>(
-    hostFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
+class EngineStressSuite<TConfiguration: ApplicationEngine.Configuration>(
+    hostFactory: EngineFactoryWithConfig<ApplicationEngine, TConfiguration>,
     clientEngineFactory: HttpClientEngineFactory<*>,
     mode: TestMode
 ) : EngineTestBase<TConfiguration>(hostFactory, clientEngineFactory, mode) {
@@ -47,7 +47,8 @@ abstract class EngineStressSuite<TConfiguration: ApplicationEngine.Configuration
     private val endMarkerCrLfBytes = endMarkerCrLf.toByteArray()
 
     @get:Rule
-    override val timeout = PublishedTimeout(TimeUnit.MILLISECONDS.toSeconds(timeMillis + gracefulMillis + shutdownMillis))
+    override val timeout =
+        PublishedTimeout(TimeUnit.MILLISECONDS.toSeconds(timeMillis + gracefulMillis + shutdownMillis))
 
     @Test
     fun `single connection single thread no pipelining`() {

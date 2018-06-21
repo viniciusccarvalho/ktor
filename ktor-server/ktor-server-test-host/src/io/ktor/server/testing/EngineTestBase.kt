@@ -1,5 +1,6 @@
 package io.ktor.server.testing
 
+import com.googlecode.junittoolbox.*
 import io.ktor.application.*
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -13,7 +14,7 @@ import io.ktor.features.*
 import io.ktor.network.tls.certificates.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
-import io.ktor.server.netty.*
+import io.ktor.server.tomcat.*
 import kotlinx.coroutines.experimental.*
 import org.junit.*
 import org.junit.rules.*
@@ -28,12 +29,14 @@ import java.util.concurrent.*
 import javax.net.ssl.*
 import kotlin.test.*
 
-@RunWith(Parameterized::class)
+@RunWith(ParallelParameterized::class)
 abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
-    val applicationEngineFactory: ApplicationEngineFactory<ApplicationEngine, TConfiguration>,
-    val clientEngineFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
+    val factoryWithConfig: EngineFactoryWithConfig<ApplicationEngine, TConfiguration>,
+    clientEngineFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
     val mode: TestMode
 ) {
+    class PublishedTimeout(val seconds: Long) : Timeout(seconds, TimeUnit.SECONDS)
+
     protected val isUnderDebugger: Boolean =
         java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments.orEmpty()
             .any { "-agentlib:jdwp" in it }
@@ -49,14 +52,6 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
 
     val testLog: Logger = LoggerFactory.getLogger("EngineTestBase")
 
-    @Target(AnnotationTarget.FUNCTION)
-    @Retention
-    protected annotation class Http2Only
-
-    @Target(AnnotationTarget.FUNCTION)
-    @Retention
-    protected annotation class NoHttp2
-
     @get:Rule
     val test = TestName()
 
@@ -67,18 +62,10 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
 
     protected val socketReadTimeout by lazy { timeout.seconds.toInt() * 1000 }
 
+    protected val client = HttpClient(clientEngineFactory)
+
     @Before
     fun setUpBase() {
-        val method = this.javaClass.getMethod(test.methodName) ?: fail("Method ${test.methodName} not found")
-
-        if (method.isAnnotationPresent(Http2Only::class.java)) {
-            Assume.assumeTrue("http2 is not enabled", mode == TestMode.HTTP2)
-        }
-
-        if (method.isAnnotationPresent(NoHttp2::class.java)) {
-            Assume.assumeTrue("http2 is enabled enabled", mode != TestMode.HTTP2)
-        }
-
         if (mode == TestMode.HTTP2) {
             Class.forName("sun.security.ssl.ALPNExtension", true, null)
         }
@@ -119,14 +106,10 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
             module(module)
         }
 
-        return embeddedServer(applicationEngineFactory, environment) {
-            configure(this)
+        return embeddedServer(factoryWithConfig.factory, environment) {
             this@EngineTestBase.callGroupSize = callGroupSize
+            factoryWithConfig.configuration(this)
         }
-    }
-
-    protected open fun configure(configuration: TConfiguration) {
-        // Empty, intended to be override in derived types when necessary
     }
 
     protected open fun features(application: Application, routingConfigurer: Routing.() -> Unit) {
@@ -198,8 +181,7 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
         path: String, builder: HttpRequestBuilder.() -> Unit = {}, block: suspend HttpResponse.(Int) -> Unit
     ): Unit = when (mode) {
         TestMode.HTTP -> withUrl(URL("http://127.0.0.1:$port$path"), port, builder, block)
-        TestMode.HTTPS -> withUrl(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
-        TestMode.HTTP2 -> withHttp2(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
+        else -> withUrl(URL("https://127.0.0.1:$sslPort$path"), sslPort, builder, block)
     }
 
     protected fun socket(block: Socket.() -> Unit) {
@@ -216,35 +198,17 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
         block: suspend HttpResponse.(Int) -> Unit
     ) = runBlocking {
         withTimeout(timeout.seconds, TimeUnit.SECONDS) {
-            HttpClient(clientEngineFactory).use { client ->
-                client.call(url, builder).response.use { response ->
-                    block(response, port)
-                }
+            client.call(url, builder).response.use { response ->
+                block(response, port)
             }
         }
     }
-
-    private fun withHttp2(
-        url: URL, port: Int,
-        builder: HttpRequestBuilder.() -> Unit, block: suspend HttpResponse.(Int) -> Unit
-    ): Unit = runBlocking {
-        withTimeout(timeout.seconds, TimeUnit.SECONDS) {
-            HttpClient(Jetty).use { httpClient ->
-                httpClient.call(url, builder).response.use { response ->
-                    block(response, port)
-                }
-            }
-        }
-    }
-
-    class PublishedTimeout(val seconds: Long) : Timeout(seconds, TimeUnit.SECONDS)
 
     companion object {
         val keyStoreFile = File("build/temp.jks")
         lateinit var keyStore: KeyStore
         lateinit var sslContext: SSLContext
         lateinit var trustManager: X509TrustManager
-
 
         @BeforeClass
         @JvmStatic
@@ -257,37 +221,37 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
             trustManager = tmf.trustManagers.first { it is X509TrustManager } as X509TrustManager
         }
 
-        private val clients = arrayOf(
-            CIO.config {
-                https.also {
-                    it.trustManager = trustManager
-                }
-            },
-            Apache.config {
-                sslContext = Companion.sslContext
-            }
-        ).asSequence()
+        internal val JettyServer = testServer(io.ktor.server.jetty.Jetty) { }
+
+        internal val NettyServer = testServer(io.ktor.server.netty.Netty) {
+            shareWorkGroup = true
+        }
+
+        val CIOServer = testServer(io.ktor.server.cio.CIO) {}
+        val TomcatServer = testServer(Tomcat) {}
+        val JettyAsyncServletServer = testServer(JettyTestServlet(async = true)) {}
+        val JettyBlockingServletServer = testServer(JettyTestServlet(async = false)) {}
+
+        val ApacheClient = Apache.config { sslContext = Companion.sslContext }
+        val CIOClient = CIO.config { https.trustManager = trustManager }
+        val JettyClient = Jetty
 
         @Parameterized.Parameters(name = "server:{0}, client:{1}, mode:{2}")
         @JvmStatic
-        fun parameters() = arrayOf(
-            arrayOf(Netty, Apache, TestMode.HTTP),
-            arrayOf(Netty, CIO, TestMode.HTTP),
-            arrayOf(io.ktor.server.cio.CIO, Apache, TestMode.HTTP),
-            arrayOf(io.ktor.server.cio.CIO, CIO, TestMode.HTTP),
-
-            arrayOf(io.ktor.server.jetty.Jetty, Apache, TestMode.HTTP),
-            arrayOf(io.ktor.server.jetty.Jetty, CIO, TestMode.HTTP),
-
-            arrayOf(Netty, Apache, TestMode.HTTPS),
-            arrayOf(Netty, CIO, TestMode.HTTPS),
-
-            arrayOf(io.ktor.server.jetty.Jetty, Apache, TestMode.HTTPS),
-            arrayOf(io.ktor.server.jetty.Jetty, CIO, TestMode.HTTPS),
-
-            arrayOf(Netty, Jetty, TestMode.HTTP2),
-            arrayOf(io.ktor.server.jetty.Jetty, Jetty, TestMode.HTTP2)
-        )
+        fun parameters() =
+            combine(
+                listOf(NettyServer, JettyServer, TomcatServer, JettyAsyncServletServer, JettyBlockingServletServer),
+                listOf(ApacheClient, CIOClient),
+                listOf(TestMode.HTTP, TestMode.HTTPS)
+            ) + combine(
+                listOf(CIOServer),
+                listOf(CIOClient, ApacheClient),
+                listOf(TestMode.HTTP)
+            ) + combine(
+                listOf(NettyServer, JettyServer, TomcatServer, JettyAsyncServletServer, JettyBlockingServletServer),
+                listOf(JettyClient),
+                listOf(TestMode.HTTP2)
+            )
 
         private suspend fun CoroutineScope.waitForPort(port: Int) {
             do {

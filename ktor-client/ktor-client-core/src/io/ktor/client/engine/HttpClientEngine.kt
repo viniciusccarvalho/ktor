@@ -48,5 +48,7 @@ fun <T : HttpClientEngineConfig> HttpClientEngineFactory<T>.config(nested: T.() 
             nested()
             block()
         }
+
+        override fun toString(): String = this@config.toString()
     }
 }
