@@ -9,6 +9,9 @@ dependencies {
     runtime project(":ktor-client:ktor-client-cio")
 
     compile group: 'ch.qos.logback', name: 'logback-classic', version: logback_version
-    compile group: 'junit', name: 'junit', version: junit_version
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit', version: kotlin_version
+
+    compile("org.junit.jupiter:junit-jupiter-api:$junit_version")
+    compile("org.junit.jupiter:junit-jupiter-params:$junit_version")
+    runtime("org.junit.jupiter:junit-jupiter-engine:$junit_version")
 }

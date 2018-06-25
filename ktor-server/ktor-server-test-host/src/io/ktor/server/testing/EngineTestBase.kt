@@ -22,10 +22,12 @@ import org.junit.runner.*
 import org.junit.runners.*
 import org.junit.runners.model.*
 import org.slf4j.*
+import org.slf4j.Logger
 import java.io.*
 import java.net.*
 import java.security.*
 import java.util.concurrent.*
+import java.util.logging.*
 import javax.net.ssl.*
 import kotlin.test.*
 
@@ -66,10 +68,6 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
 
     @Before
     fun setUpBase() {
-        if (mode == TestMode.HTTP2) {
-            Class.forName("sun.security.ssl.ALPNExtension", true, null)
-        }
-
         testLog.trace("Starting server on port $port (SSL $sslPort)")
         exceptions.clear()
     }
@@ -221,16 +219,20 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
             trustManager = tmf.trustManagers.first { it is X509TrustManager } as X509TrustManager
         }
 
-        internal val JettyServer = testServer(io.ktor.server.jetty.Jetty) { }
-
-        internal val NettyServer = testServer(io.ktor.server.netty.Netty) {
+        val JettyServer = testServer(io.ktor.server.jetty.Jetty)
+        val NettyServer = testServer(io.ktor.server.netty.Netty) {
             shareWorkGroup = true
         }
 
-        val CIOServer = testServer(io.ktor.server.cio.CIO) {}
-        val TomcatServer = testServer(Tomcat) {}
-        val JettyAsyncServletServer = testServer(JettyTestServlet(async = true)) {}
-        val JettyBlockingServletServer = testServer(JettyTestServlet(async = false)) {}
+        val CIOServer = testServer(io.ktor.server.cio.CIO)
+        val TomcatServer = testServer(Tomcat) {
+            listOf("org.apache.coyote", "org.apache.tomcat", "org.apache.catalina").map {
+                java.util.logging.Logger.getLogger(it).apply { level = Level.WARNING }
+            }
+        }
+
+        val JettyAsyncServletServer = testServer(JettyTestServlet(async = true))
+        val JettyBlockingServletServer = testServer(JettyTestServlet(async = false))
 
         val ApacheClient = Apache.config { sslContext = Companion.sslContext }
         val CIOClient = CIO.config { https.trustManager = trustManager }
@@ -248,7 +250,7 @@ abstract class EngineTestBase<TConfiguration : ApplicationEngine.Configuration>(
                 listOf(CIOClient, ApacheClient),
                 listOf(TestMode.HTTP)
             ) + combine(
-                listOf(NettyServer, JettyServer, TomcatServer, JettyAsyncServletServer, JettyBlockingServletServer),
+                listOf(NettyServer, JettyServer, JettyAsyncServletServer, JettyBlockingServletServer),
                 listOf(JettyClient),
                 listOf(TestMode.HTTP2)
             )

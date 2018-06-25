@@ -18,7 +18,9 @@ enum class TestMode {
 class EngineFactoryWithConfig<TEngine : ApplicationEngine, TConfig : ApplicationEngine.Configuration>(
     val factory: ApplicationEngineFactory<TEngine, TConfig>,
     val configuration: TConfig.() -> Unit
-)
+) {
+    override fun toString(): String = factory.toString()
+}
 
 fun <TEngine : ApplicationEngine, TConfig : ApplicationEngine.Configuration> testServer(
     factory: ApplicationEngineFactory<TEngine, TConfig>,
