@@ -12,6 +12,8 @@ import io.ktor.client.engine.*
 object CIO : HttpClientEngineFactory<CIOEngineConfig> {
     override fun create(block: CIOEngineConfig.() -> Unit): HttpClientEngine =
         CIOEngine(CIOEngineConfig().apply(block))
+
+    override fun toString(): String = "CIO"
 }
 
 class CIOEngineContainer : HttpClientEngineContainer {

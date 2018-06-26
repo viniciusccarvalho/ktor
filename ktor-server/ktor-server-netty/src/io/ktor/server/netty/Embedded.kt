@@ -9,4 +9,6 @@ object Netty : ApplicationEngineFactory<NettyApplicationEngine, NettyApplication
     override fun create(environment: ApplicationEngineEnvironment, configure: NettyApplicationEngine.Configuration.() -> Unit): NettyApplicationEngine {
         return NettyApplicationEngine(environment, configure)
     }
+
+    override fun toString(): String = "Netty"
 }

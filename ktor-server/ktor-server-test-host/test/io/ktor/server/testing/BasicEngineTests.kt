@@ -1190,12 +1190,11 @@ class BasicEngineTests<TConfiguration : ApplicationEngine.Configuration>(
             }
         }
 
-        val e = Executors.newCachedThreadPool()
+        val executors = Executors.newCachedThreadPool()!!
         try {
-            val q = LinkedBlockingQueue<String>()
-
-            val conns = (0..callGroupSize * 10).map {
-                e.submit(Callable<String> {
+            val queries = LinkedBlockingQueue<String>()
+            val results = (0..callGroupSize * 10).map {
+                executors.submit(Callable<String> {
                     try {
                         URL("http://localhost:$port/").openConnection().inputStream.bufferedReader().readLine().apply {
                             //println("$number says $this")
@@ -1203,7 +1202,7 @@ class BasicEngineTests<TConfiguration : ApplicationEngine.Configuration>(
                     } catch (t: Throwable) {
                         "error: ${t.message}"
                     }.apply {
-                        q.add(this)
+                        queries.add(this)
                     }
                 })
             }
@@ -1213,16 +1212,15 @@ class BasicEngineTests<TConfiguration : ApplicationEngine.Configuration>(
 
             fun dump() {
 //            val (valid, invalid) = conns.filter { it.isDone }.partition { it.get() == "Deadlock ?" }
-//
 //            println("Completed: ${valid.size} valid, ${invalid.size} invalid of ${conns.size} total [attempts $attempts]")
             }
 
             while (true) {
                 dump()
 
-                if (conns.all { it.isDone }) {
+                if (results.all { it.isDone }) {
                     break
-                } else if (q.poll(5, TimeUnit.SECONDS) == null) {
+                } else if (queries.poll(5, TimeUnit.SECONDS) == null) {
                     if (attempts <= 0) {
                         break
                     }
@@ -1239,15 +1237,15 @@ class BasicEngineTests<TConfiguration : ApplicationEngine.Configuration>(
 //             TimeUnit.SECONDS.sleep(500)
 //        }
 
-            assertTrue { conns.all { it.isDone } }
+            assertTrue { results.all { it.isDone } }
         } finally {
-            e.shutdownNow()
+            executors.shutdownNow()
         }
     }
 
     @Test
     fun testUpgrade() {
-        Assume.assumeFalse(server == TomcatServer || server == JettyBlockingServletServer)
+        Assume.assumeFalse(hostFactory in listOf<Any>(TomcatServer, JettyBlockingServletServer))
 
         createAndStartServer {
             get("/up") {

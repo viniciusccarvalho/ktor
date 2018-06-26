@@ -9,4 +9,6 @@ object Tomcat : ApplicationEngineFactory<TomcatApplicationEngine, TomcatApplicat
     override fun create(environment: ApplicationEngineEnvironment, configure: TomcatApplicationEngine.Configuration.() -> Unit): TomcatApplicationEngine {
         return TomcatApplicationEngine(environment, configure)
     }
+
+    override fun toString(): String = "Tomcat"
 }

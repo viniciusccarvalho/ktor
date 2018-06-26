@@ -9,4 +9,6 @@ object Jetty : ApplicationEngineFactory<JettyApplicationEngine, JettyApplication
     override fun create(environment: ApplicationEngineEnvironment, configure: JettyApplicationEngineBase.Configuration.() -> Unit): JettyApplicationEngine {
         return JettyApplicationEngine(environment, configure)
     }
+
+    override fun toString(): String = "Jetty"
 }

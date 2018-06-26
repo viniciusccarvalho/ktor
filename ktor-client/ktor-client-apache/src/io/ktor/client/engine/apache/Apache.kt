@@ -18,6 +18,8 @@ object Apache : HttpClientEngineFactory<ApacheEngineConfig> {
         val config = ApacheEngineConfig().apply(block)
         return ApacheEngine(config)
     }
+
+    override fun toString(): String = "Apache"
 }
 
 class ApacheEngineContainer : HttpClientEngineContainer {

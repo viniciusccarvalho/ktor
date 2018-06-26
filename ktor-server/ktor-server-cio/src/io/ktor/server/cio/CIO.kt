@@ -9,4 +9,6 @@ object CIO : ApplicationEngineFactory<CIOApplicationEngine, CIOApplicationEngine
     override fun create(environment: ApplicationEngineEnvironment, configure: CIOApplicationEngine.Configuration.() -> Unit): CIOApplicationEngine {
         return CIOApplicationEngine(environment, configure)
     }
+
+    override fun toString(): String = "CIO"
 }

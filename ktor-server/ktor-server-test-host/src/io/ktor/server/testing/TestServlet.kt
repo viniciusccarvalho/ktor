@@ -18,6 +18,8 @@ class JettyTestServlet(private val async: Boolean) :
     ): JettyTestServletApplicationEngine {
         return JettyTestServletApplicationEngine(environment, configure, async)
     }
+
+    override fun toString(): String = if (async) "AsyncJettyTestServlet" else "BlockingJettyTestServlet"
 }
 
 class JettyTestServletApplicationEngine(

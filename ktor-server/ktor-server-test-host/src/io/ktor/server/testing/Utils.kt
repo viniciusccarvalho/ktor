@@ -25,7 +25,7 @@ class EngineFactoryWithConfig<TEngine : ApplicationEngine, TConfig : Application
 fun <TEngine : ApplicationEngine, TConfig : ApplicationEngine.Configuration> testServer(
     factory: ApplicationEngineFactory<TEngine, TConfig>,
     configuration: TConfig.() -> Unit = {}
-) = EngineFactoryWithConfig(factory, configuration)
+): EngineFactoryWithConfig<TEngine, TConfig> = EngineFactoryWithConfig(factory, configuration)
 
 @Suppress("UNUSED_PARAMETER")
 fun on(comment: String, body: On.() -> Unit) = On.body()
