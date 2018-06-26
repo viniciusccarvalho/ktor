@@ -4,11 +4,13 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.utils.*
 import io.ktor.content.*
+import io.ktor.http.*
 import io.ktor.util.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.channels.*
 import kotlinx.coroutines.experimental.io.*
 import org.apache.http.*
+import org.apache.http.HttpHeaders
 import org.apache.http.HttpRequest
 import org.apache.http.client.config.*
 import org.apache.http.client.methods.*
@@ -17,6 +19,7 @@ import org.apache.http.entity.*
 import org.apache.http.nio.*
 import org.apache.http.nio.protocol.*
 import org.apache.http.protocol.*
+import java.net.*
 import java.nio.ByteBuffer
 
 internal class ApacheRequestProducer(
@@ -92,7 +95,7 @@ internal class ApacheRequestProducer(
             scheme = url.protocol.name
             host = url.host
             if (url.port != url.protocol.defaultPort) port = url.port
-            path = url.encodedPath
+            path = decodeURLPart(url.encodedPath)
 
             if (url.parameters.isEmpty() && url.trailingQuery) setParameters(listOf())
             url.parameters.flattenForEach { key, value -> addParameter(key, value) }
