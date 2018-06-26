@@ -27,7 +27,6 @@ import org.slf4j.*
 import java.io.*
 import java.net.*
 import java.nio.ByteBuffer
-import java.security.*
 import java.util.*
 import java.util.concurrent.*
 import java.util.concurrent.atomic.*
@@ -36,7 +35,7 @@ import kotlin.concurrent.*
 import kotlin.coroutines.experimental.*
 import kotlin.test.*
 
-class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
+class BasicEngineTests<TConfiguration : ApplicationEngine.Configuration>(
     hostFactory: EngineFactoryWithConfig<ApplicationEngine, TConfiguration>,
     clientFactory: HttpClientEngineFactory<HttpClientEngineConfig>,
     mode: TestMode
@@ -295,7 +294,7 @@ class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
             }
         }
 
-        withUrl("/files/${EngineTestSuite::class.simpleName}.class") {
+        withUrl("/files/${BasicEngineTests::class.simpleName}.class") {
             assertEquals(200, status.value)
             val bytes = readBytes(8192)
             assertNotEquals(0, bytes.size)
@@ -308,7 +307,7 @@ class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
 
             discardRemaining()
         }
-        withUrl("/files/${EngineTestSuite::class.simpleName}.class2") {
+        withUrl("/files/${BasicEngineTests::class.simpleName}.class2") {
             assertEquals(HttpStatusCode.NotFound.value, status.value)
             discardRemaining()
         }
@@ -1113,70 +1112,6 @@ class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
     }
 
     @Test
-    fun testBigFile() {
-        val file = File("build/large-file.dat")
-        val rnd = Random()
-
-        if (!file.exists()) {
-            file.bufferedWriter().use { out ->
-                for (line in 1..9000000) {
-                    for (col in 1..(30 + rnd.nextInt(40))) {
-                        out.append('a' + rnd.nextInt(25))
-                    }
-                    out.append('\n')
-                }
-            }
-        }
-
-        val originalSha1WithSize = file.inputStream().use { it.sha1WithSize() }
-
-        createAndStartServer {
-            get("/file") {
-                call.respond(LocalFileContent(file))
-            }
-        }
-
-        withUrl("/file") {
-            assertEquals(originalSha1WithSize, content.toInputStream().sha1WithSize())
-        }
-    }
-
-    @Test
-    fun testBigFileHttpUrlConnection() {
-        val file = File("build/large-file.dat")
-        val rnd = Random()
-
-        if (!file.exists()) {
-            file.bufferedWriter().use { out ->
-                for (line in 1..9000000) {
-                    for (col in 1..(30 + rnd.nextInt(40))) {
-                        out.append('a' + rnd.nextInt(25))
-                    }
-                    out.append('\n')
-                }
-            }
-        }
-
-        val originalSha1WithSize = file.inputStream().use { it.sha1WithSize() }
-
-        createAndStartServer {
-            get("/file") {
-                call.respond(LocalFileContent(file))
-            }
-        }
-
-        val connection = URL("http://localhost:$port/file").openConnection(Proxy.NO_PROXY) as HttpURLConnection
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-
-        try {
-            assertEquals(originalSha1WithSize, connection.inputStream.sha1WithSize())
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    @Test
     fun testClosedConnection() {
         val completed = Job()
 
@@ -1586,23 +1521,6 @@ class EngineTestSuite<TConfiguration : ApplicationEngine.Configuration>(
 
     private fun String.urlPath() = replace("\\", "/")
     private class ExpectedException(message: String) : RuntimeException(message)
-
-    private fun InputStream.sha1WithSize(): Pair<String, Long> {
-        val md = MessageDigest.getInstance("SHA1")
-        val bytes = ByteArray(8192)
-        var count = 0L
-
-        do {
-            val rc = read(bytes)
-            if (rc == -1) {
-                break
-            }
-            count += rc
-            md.update(bytes, 0, rc)
-        } while (true)
-
-        return hex(md.digest()) to count
-    }
 
     companion object {
         val classesDir = "build/classes/kotlin/main"
