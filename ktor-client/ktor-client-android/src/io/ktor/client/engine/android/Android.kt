@@ -2,7 +2,7 @@ package io.ktor.client.engine.android
 
 import io.ktor.client.engine.*
 
-object Android : HttpClientEngineFactory<HttpClientEngineConfig> {
-    override fun create(block: HttpClientEngineConfig.() -> Unit): HttpClientEngine =
-        AndroidClientEngine(HttpClientEngineConfig().apply(block))
+object Android : HttpClientEngineFactory<AndroidEngineConfig> {
+    override fun create(block: AndroidEngineConfig.() -> Unit): HttpClientEngine =
+        AndroidClientEngine(AndroidEngineConfig().apply(block))
 }

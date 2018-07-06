@@ -58,4 +58,11 @@ private class Entry<Key, Value>(override val key: Key, override var value: Value
         value = newValue
         return value
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is Map.Entry<*, *>) return false
+        return other.key == key && other.value == value
+    }
+
+    override fun toString(): String = "$key=$value"
 }

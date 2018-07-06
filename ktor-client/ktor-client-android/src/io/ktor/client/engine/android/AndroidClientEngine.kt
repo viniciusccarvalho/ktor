@@ -14,7 +14,7 @@ import java.net.*
 import java.util.*
 import java.util.concurrent.*
 
-open class AndroidClientEngine(override val config: HttpClientEngineConfig) : HttpClientEngine {
+open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpClientEngine {
     override val dispatcher: CoroutineDispatcher by lazy {
         config.dispatcher ?: Executors.newCachedThreadPool().asCoroutineDispatcher()
     }
@@ -37,6 +37,9 @@ open class AndroidClientEngine(override val config: HttpClientEngineConfig) : Ht
         val contentLength = headers[HttpHeaders.ContentLength]?.toLong() ?: content.contentLength
 
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = config.connectTimeout
+            readTimeout = config.socketTimeout
+
             requestMethod = method.value
             useCaches = false
             instanceFollowRedirects = false
