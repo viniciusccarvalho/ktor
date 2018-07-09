@@ -50,6 +50,7 @@ include ':ktor-network'
 include ':ktor-network:ktor-network-tls'
 include ':ktor-utils:ktor-utils-jvm'
 include ':ktor-utils:ktor-utils-ios'
+include ':ktor-utils:ktor-utils-android'
 
 project(':ktor-server').projectDir = "$rootDir/ktor-server" as File
 project(':ktor-server:ktor-server-core').projectDir = "$rootDir/ktor-server/ktor-server-core" as File
@@ -99,3 +100,4 @@ project(':ktor-network:ktor-network-tls').projectDir = "$rootDir/ktor-network/kt
 project(':ktor-utils').projectDir = "$rootDir/ktor-utils" as File
 project(':ktor-utils:ktor-utils-jvm').projectDir = "$rootDir/ktor-utils/ktor-utils-jvm" as File
 project(':ktor-utils:ktor-utils-ios').projectDir = "$rootDir/ktor-utils/ktor-utils-ios" as File
+project(':ktor-utils:ktor-utils-android').projectDir = "$rootDir/ktor-utils/ktor-utils-android" as File
