@@ -1,6 +1,9 @@
-apply plugin: 'konan'
 
-konan.targets = ['ios_x64', 'ios_arm64']
+dependencies {
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core-native', version: coroutines_version
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx_io_native', version: kotlinx_io_version
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx_coroutines_io_native', version: kotlinx_io_version
+}
 
 afterEvaluate {
     apply from: rootProject.file('gradle/publish.gradle')

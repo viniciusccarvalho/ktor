@@ -55,7 +55,6 @@ allprojects {
     repositories {
 //        mavenLocal()
         jcenter()
-
         if (kotlin_version.contains('-eap') || kotlin_version.contains('-rc')) {
             if (kotlin_version.startsWith("1.1")) {
                 maven { url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1' }
@@ -73,6 +72,10 @@ allprojects {
         maven { url 'https://dl.bintray.com/qwwdfsad/kotlinx' }
     }
 
+    apply plugin: 'maven'
+    apply plugin: 'com.jfrog.bintray'
+    apply plugin: "kotlin-platform-${platform}"
+
     apply from: rootProject.file("gradle/${platform}.gradle")
     if (platform != 'native') {
         apply from: rootProject.file('gradle/publish.gradle')
@@ -81,21 +84,30 @@ allprojects {
     sourceSets {
         main {
             kotlin.srcDir 'src'
-            resources.srcDir 'resources'
+            if (platform == 'native') {
+                component {
+                    target 'ios_arm64', 'ios_x64'
+                    outputKinds = [KLIBRARY]
+                }
+            } else {
+                resources.srcDir 'resources'
+            }
         }
         test {
             kotlin.srcDir 'test'
-            resources.srcDir 'test-resources'
+            if (platform != 'native') resources.srcDir 'test-resources'
         }
     }
 
     task sourceJar(type: Jar, dependsOn: classes) {
         classifier 'sources'
-        from sourceSets.main.kotlin
-        duplicatesStrategy DuplicatesStrategy.EXCLUDE
-        def platformSrc = sourceSets.main.allSource
-        def commonSrc = rootProject.sourceSets.main.allSource
-        from(platformSrc + commonSrc)
+        if (platform != 'native') {
+            from sourceSets.main.kotlin
+            duplicatesStrategy DuplicatesStrategy.EXCLUDE
+            def platformSrc = sourceSets.main.allSource
+            def commonSrc = rootProject.sourceSets.main.allSource
+            from(platformSrc + commonSrc)
+        }
     }
 
     task emptyJar(type: Jar) {
