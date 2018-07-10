@@ -5,17 +5,15 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.response.*
 import io.ktor.client.utils.*
-import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.http.HttpMethod
+import io.ktor.http.content.*
 import io.ktor.util.*
-import io.ktor.util.Closeable
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
+import kotlinx.io.core.*
 import org.eclipse.jetty.http.*
-import org.eclipse.jetty.http2.api.*
 import org.eclipse.jetty.http2.frames.*
-import java.io.*
 import java.nio.*
 import java.util.*
 
@@ -55,11 +53,7 @@ internal class JettyHttpRequest(
         sendRequestBody(jettyRequest, content)
 
         val (status, headers) = responseListener.awaitHeaders()
-        val origin = object : Closeable {
-            override fun close() {
-                bodyChannel.close()
-            }
-        }
+        val origin = Closeable { bodyChannel.close() }
         return JettyHttpResponse(call, status, headers, requestTime, responseContext, bodyChannel, origin)
     }
 

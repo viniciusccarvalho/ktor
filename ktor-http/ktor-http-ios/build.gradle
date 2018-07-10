@@ -3,6 +3,7 @@ konan.targets = ["ios_arm64", "ios_x64"]
 konanArtifacts {
     library('ktor_http_ios') {
         enableMultiplatform true
+        extraOpts '--disable', 'devirtualization'
 
         srcDir 'src'
 

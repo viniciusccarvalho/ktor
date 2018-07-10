@@ -30,10 +30,10 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
     override fun close() {
     }
 
-    private suspend fun AndroidHttpRequest.execute() = suspendCancellableCoroutine<AndroidHttpResponse> {
+    private suspend fun AndroidHttpRequest.execute() = suspendCancellableCoroutine<AndroidHttpResponse> { cont ->
         val requestTime = Date()
 
-        val url = "${url.protocol.name}://${url.hostWithPort}${url.fullPath}"
+        val url = URLBuilder().takeFrom(url).buildString()
         val contentLength = headers[HttpHeaders.ContentLength]?.toLong() ?: content.contentLength
 
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -48,17 +48,17 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
                 addRequestProperty(key, value.joinToString(";"))
             }
 
-            if (contentLength != null) {
-                addRequestProperty(HttpHeaders.ContentLength, contentLength.toString())
-            } else {
-                addRequestProperty(HttpHeaders.TransferEncoding, "chunked")
-            }
-
             if (!headers.contains(HttpHeaders.Connection)) {
                 addRequestProperty(HttpHeaders.Connection, "close")
             }
 
             if (this@execute.content !is OutgoingContent.NoContent) {
+                if (contentLength != null) {
+                    addRequestProperty(HttpHeaders.ContentLength, contentLength.toString())
+                } else {
+                    addRequestProperty(HttpHeaders.TransferEncoding, "chunked")
+                }
+
                 contentLength?.let { setFixedLengthStreamingMode(it) } ?: setChunkedStreamingMode(0)
                 doOutput = true
 
@@ -71,10 +71,10 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
         val headerFields = connection.headerFields
 
         val responseHeaders = HeadersBuilder().apply {
-            headerFields.forEach { (key, values) -> key?.let { appendAll(it, values) } }
+            headerFields?.forEach { (key, values) -> key?.let { appendAll(it, values) } }
         }.build()
 
-        it.resume(
+        cont.resume(
             AndroidHttpResponse(
                 call, content, Job(),
                 responseHeaders, requestTime, Date(),

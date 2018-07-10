@@ -1,6 +1,8 @@
+
 konanArtifacts {
     library('ktor_client_core_ios') {
         enableMultiplatform true
+        extraOpts '--disable', 'devirtualization'
 
         srcDir 'src'
 
