@@ -21,8 +21,15 @@ class AttributesJvm : Attributes {
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> computeIfAbsent(key: AttributeKey<T>, block: () -> T): T =
-        map.computeIfAbsent(key) { block() } as T
+    /**
+     * Note. Block could be evaluated twice for the same key
+     * TODO: To be discussed. Workaround for android < API 24.
+     */
+    override fun <T : Any> computeIfAbsent(key: AttributeKey<T>, block: () -> T): T {
+        map[key]?.let { return it as T }
+        val result = block()
+        return (map.putIfAbsent(key, result) ?: result) as T
+    }
 
     override val allKeys: List<AttributeKey<*>>
         get() = map.keys.toList()
