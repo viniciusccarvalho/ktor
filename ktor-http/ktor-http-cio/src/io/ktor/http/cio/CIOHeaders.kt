@@ -26,11 +26,5 @@ class CIOHeaders(private val headers: HttpHeadersMap) : Headers {
     private inner class Entry(private val idx: Int) : Map.Entry<String, List<String>> {
         override val key: String get() = headers.nameAt(idx).toString()
         override val value: List<String> get() = listOf(headers.valueAt(idx).toString())
-
-        override fun equals(other: Any?): Boolean {
-            println(other)
-            println(this)
-            TODO()
-        }
     }
 }

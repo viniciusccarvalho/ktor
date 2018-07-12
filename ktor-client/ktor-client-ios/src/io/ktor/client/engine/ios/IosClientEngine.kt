@@ -31,9 +31,7 @@ class IosClientEngine(override val config: HttpClientEngineConfig) : HttpClientE
 
             override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
                 total += didReceiveData.length.toInt()
-                println("received data: ${didReceiveData.length}, total: $total")
                 val content = didReceiveData.toByteArray()
-                println("converted data size: ${content.size}")
                 if (!chunks.offer(content)) throw IosHttpRequestException()
             }
 
@@ -44,7 +42,6 @@ class IosClientEngine(override val config: HttpClientEngineConfig) : HttpClientE
                 if (didCompleteWithError != null) {
                     continuation.resumeWithException(IosHttpRequestException(didCompleteWithError))
                 }
-                println(response)
 
                 @Suppress("UNCHECKED_CAST")
                 val headersDict = response.allHeaderFields as Map<String, String>
@@ -54,16 +51,11 @@ class IosClientEngine(override val config: HttpClientEngineConfig) : HttpClientE
                     headersDict.mapKeys { (key, value) -> append(key, value) }
                 }
 
-                println("Content length: ${headers[HttpHeaders.ContentLength]}")
-
                 val responseContext = writer(dispatcher, autoFlush = true) {
                     while (!chunks.isClosedForReceive) {
                         val chunk = chunks.receive()
-                        println("receive chunk: ${chunk.size}")
                         channel.writeFully(chunk)
                     }
-
-                    println("content done")
                 }
 
                 val result = IosHttpResponse(call, status, headers, responseContext.channel, responseContext)
@@ -77,7 +69,6 @@ class IosClientEngine(override val config: HttpClientEngineConfig) : HttpClientE
         )
 
         val url = URLBuilder().takeFrom(request.url).buildString()
-        println(url)
         val nativeRequest = NSMutableURLRequest.requestWithURL(NSURL(string = url))
         val headers = request.headers
         val entries = headers.entries()
