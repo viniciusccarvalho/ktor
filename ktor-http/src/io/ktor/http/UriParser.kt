@@ -23,9 +23,19 @@ fun String.parseUrl(): Url {
         if (parts.contains("parameters")) {
             val paramString = parts["parameters"]
 
+            val rawParameters = parseQueryString(paramString)
+            rawParameters.forEach { key, values ->
+                parameters.appendAll(key, values)
+            }
         }
     }.build()
 }
+
+/**
+ * TODO:
+ * 1. login password
+ * 2. #; (fragment)
+ */
 
 /**
  * According to https://tools.ietf.org/html/rfc1738
@@ -46,7 +56,7 @@ private val hostName = many(domainLabel then ".") then topLabel
 private val hostNumber = digits then "." then digits then "." then digits then "." then digits
 private val host = (hostName or hostNumber).named("host")
 private val port = ":" then digits.named("port")
-private val pathSegment = many(urlChar or anyOf(";?&="))
+private val pathSegment = many(urlChar or anyOf(";&="))
 private val parameters = pathSegment.named("parameters")
 private val encodedPath = ("/" then pathSegment then maybe("/" then pathSegment)).named("encodedPath")
 
