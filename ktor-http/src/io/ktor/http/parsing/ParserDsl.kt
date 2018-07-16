@@ -1,12 +1,21 @@
 package io.ktor.http.parsing
 
 internal sealed class Grammar
+
+internal interface ComplexGrammar {
+    val grammars: List<Grammar>
+}
+
+internal interface SimpleGrammar {
+    val grammar: Grammar
+}
+
 internal class StringGrammar(val value: String) : Grammar()
 internal class NamedGrammar(val name: String, val grammar: Grammar) : Grammar()
-internal class SequenceGrammar(val grammars: List<Grammar>) : Grammar()
-internal class OrGrammar(val grammars: List<Grammar>) : Grammar()
-internal class MaybeGrammar(val grammar: Grammar) : Grammar()
-internal class ManyGrammar(val grammar: Grammar) : Grammar()
+internal class SequenceGrammar(override val grammars: List<Grammar>) : Grammar(), ComplexGrammar
+internal class OrGrammar(override val grammars: List<Grammar>) : Grammar(), ComplexGrammar
+internal class MaybeGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
+internal class ManyGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
 internal class AnyOfGrammar(val value: String) : Grammar()
 internal class RangeGrammar(val from: Char, val to: Char) : Grammar()
 internal class RawGrammar(val value: String) : Grammar()

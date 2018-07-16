@@ -36,3 +36,9 @@ internal class ParseResult(
 
     fun contains(key: String): Boolean = mapping.contains(key)
 }
+
+internal fun ParseResult.with(key: String, block: (String) -> Unit) {
+    if (!contains(key)) return
+    val value = this[key]
+    if (value.isNotBlank()) block(value)
+}

@@ -1,69 +1,65 @@
 package io.ktor.http.parsing
 
 internal fun Grammar.buildRegexParser(): Parser {
-    fun <T> MutableList<T>.pop(): T = removeAt(size - 1)
-
     val groups = mutableMapOf<String, MutableList<Int>>()
     val expression = toRegex(groups)
 
     return RegexParser(Regex(expression.regex), groups)
 }
 
-private class GrammarRegex(val regex: String, val groupsCount: Int = 0)
+private class GrammarRegex(
+    regexRaw: String,
+    groupsCountRaw: Int = 0,
+    group: Boolean = false
+) {
+    val regex = if (group) "($regexRaw)" else regexRaw
+    val groupsCount = if (group) groupsCountRaw + 1 else groupsCountRaw
+}
 
 /**
  * Convert grammar to regex.
  * [offset] first available group index
  */
-private fun Grammar.toRegex(groups: MutableMap<String, MutableList<Int>>, offset: Int = 1): GrammarRegex = when (this) {
-    is StringGrammar -> GrammarRegex(Regex.escape(value))
-    is RawGrammar -> GrammarRegex(value)
+private fun Grammar.toRegex(
+    groups: MutableMap<String, MutableList<Int>>,
+    offset: Int = 1,
+    shouldGroup: Boolean = false
+): GrammarRegex = when (this) {
+    is StringGrammar -> GrammarRegex(Regex.escape(value), group = shouldGroup)
+    is RawGrammar -> GrammarRegex(value, group = shouldGroup)
     is NamedGrammar -> {
         val nested = grammar.toRegex(groups, offset + 1)
         groups.add(name, offset)
-        GrammarRegex("(${nested.regex})", nested.groupsCount + 1)
+        GrammarRegex(nested.regex, nested.groupsCount, group = true)
     }
-    is SequenceGrammar -> {
-        var currentOffset = offset + 1
+    is ComplexGrammar -> {
         val expression = StringBuilder()
 
-        expression.append("(")
-        grammars.forEach { grammar ->
-            val current = grammar.toRegex(groups, currentOffset)
-
-            expression.append(current.regex)
-            currentOffset += current.groupsCount
-        }
-        expression.append(")")
-
-        GrammarRegex(expression.toString(), currentOffset - offset)
-    }
-    is OrGrammar -> {
-        var currentOffset = offset + 1
-        val expression = StringBuilder()
-
-        expression.append("(")
+        var currentOffset = if (shouldGroup) offset + 1 else offset
         grammars.forEachIndexed { index, grammar ->
-            val current = grammar.toRegex(groups, currentOffset)
+            val current = grammar.toRegex(groups, currentOffset, shouldGroup = true)
 
-            if (index != 0) expression.append("|")
+            if (index != 0 && this is OrGrammar) expression.append("|")
             expression.append(current.regex)
             currentOffset += current.groupsCount
         }
-        expression.append(")")
 
-        GrammarRegex(expression.toString(), currentOffset - offset)
+        val groupsCount = if (shouldGroup) currentOffset - offset - 1 else currentOffset - offset
+        GrammarRegex(expression.toString(), groupsCount, shouldGroup)
     }
-    is MaybeGrammar -> {
-        val nested = grammar.toRegex(groups, offset + 1)
-        GrammarRegex("(${nested.regex})?", nested.groupsCount)
+    is SimpleGrammar -> {
+        val operator = when (this) {
+            is MaybeGrammar -> '?'
+            is ManyGrammar -> '*'
+            else -> error("Unsupported grammar element: $this")
+        }
+
+        val nested = grammar.toRegex(groups, offset, shouldGroup = true)
+        GrammarRegex("${nested.regex}$operator", nested.groupsCount)
     }
-    is ManyGrammar -> {
-        val nested = grammar.toRegex(groups, offset + 1)
-        GrammarRegex("(${nested.regex})*", nested.groupsCount)
-    }
-    is AnyOfGrammar -> GrammarRegex("[${Regex.escape(value)}]")
-    is RangeGrammar -> GrammarRegex("[$from-$to]")
+    is AnyOfGrammar -> GrammarRegex("[${Regex.escape(value)}]", group = shouldGroup)
+    is RangeGrammar -> GrammarRegex("[$from-$to]", group = shouldGroup)
+    else -> error("Unsupported grammar element: $this")
 }
 
 private fun MutableMap<String, MutableList<Int>>.add(key: String, value: Int) {
