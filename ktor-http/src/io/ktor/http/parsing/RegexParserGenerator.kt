@@ -2,9 +2,9 @@ package io.ktor.http.parsing
 
 internal fun Grammar.buildRegexParser(): Parser {
     val groups = mutableMapOf<String, MutableList<Int>>()
-    val expression = toRegex(groups)
+    val expression = toRegex(groups).regex
 
-    return RegexParser(Regex(expression.regex), groups)
+    return RegexParser(Regex(expression), groups)
 }
 
 private class GrammarRegex(
@@ -16,17 +16,13 @@ private class GrammarRegex(
     val groupsCount = if (group) groupsCountRaw + 1 else groupsCountRaw
 }
 
-/**
- * Convert grammar to regex.
- * [offset] first available group index
- */
 private fun Grammar.toRegex(
     groups: MutableMap<String, MutableList<Int>>,
     offset: Int = 1,
     shouldGroup: Boolean = false
 ): GrammarRegex = when (this) {
-    is StringGrammar -> GrammarRegex(Regex.escape(value), group = shouldGroup)
-    is RawGrammar -> GrammarRegex(value, group = shouldGroup)
+    is StringGrammar -> GrammarRegex(Regex.escape(value))
+    is RawGrammar -> GrammarRegex(value)
     is NamedGrammar -> {
         val nested = grammar.toRegex(groups, offset + 1)
         groups.add(name, offset)
@@ -51,14 +47,15 @@ private fun Grammar.toRegex(
         val operator = when (this) {
             is MaybeGrammar -> '?'
             is ManyGrammar -> '*'
-            else -> error("Unsupported grammar element: $this")
+            is AtLeastOne -> '+'
+            else -> error("Unsupported simple grammar element: $this")
         }
 
         val nested = grammar.toRegex(groups, offset, shouldGroup = true)
         GrammarRegex("${nested.regex}$operator", nested.groupsCount)
     }
-    is AnyOfGrammar -> GrammarRegex("[${Regex.escape(value)}]", group = shouldGroup)
-    is RangeGrammar -> GrammarRegex("[$from-$to]", group = shouldGroup)
+    is AnyOfGrammar -> GrammarRegex("[${Regex.escape(value)}]")
+    is RangeGrammar -> GrammarRegex("[$from-$to]")
     else -> error("Unsupported grammar element: $this")
 }
 

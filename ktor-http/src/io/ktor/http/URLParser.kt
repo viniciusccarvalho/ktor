@@ -44,21 +44,21 @@ private val unreserved = alphaDigit or safe or extra
 private val urlChar = unreserved or escape
 private val protocolChar = lowAlpha or digit or anyOf("+-.")
 
-private val protocol = (protocolChar then many(protocolChar)).named("protocol")
+private val protocol = atLeastOne(protocolChar).named("protocol")
 private val domainLabel = alphaDigit or (alphaDigit then many(alphaDigit or "-") then alphaDigit)
 private val topLabel = alpha or (alpha then many(alphaDigit or "-") then alphaDigit)
 private val hostName = many(domainLabel then ".") then topLabel
 
 private val hostNumber = digits then "." then digits then "." then digits then "." then digits
 private val credentialChar = urlChar or anyOf(";?&=")
-private val user = (credentialChar then many(credentialChar)).named("user")
-private val password = (credentialChar then many(credentialChar)).named("password")
+private val user = atLeastOne(credentialChar).named("user")
+private val password = atLeastOne(credentialChar).named("password")
 private val auth = user then maybe(":" then password) then "@"
 private val host = (hostName or hostNumber).named("host")
 private val port = ":" then digits.named("port")
 private val pathSegment = many(urlChar or anyOf(";&="))
 private val parameters = pathSegment.named("parameters")
-private val encodedPath = ("/" then pathSegment then maybe("/" then pathSegment)).named("encodedPath")
+private val encodedPath = atLeastOne("/" then pathSegment).named("encodedPath")
 private val fragment = ("#" then maybe(pathSegment).named("fragment"))
 
 private val URL_PARSER = grammar {
@@ -68,5 +68,3 @@ private val URL_PARSER = grammar {
     +{ host then maybe(port) }
     +maybe(encodedPath then maybe("?" then parameters) then maybe(fragment))
 }.buildRegexParser()
-
-

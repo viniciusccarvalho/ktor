@@ -23,6 +23,10 @@ internal fun Grammar.printDebug(offset: Int = 0): Unit = when (this) {
         printlnWithOffset(offset, "MANY")
         grammar.printDebug(offset + 2)
     }
+    is AtLeastOne -> {
+        printlnWithOffset(offset, "MANY_NOT_EMPTY")
+        grammar.printDebug(offset + 2)
+    }
     is AnyOfGrammar -> printlnWithOffset(offset, "ANY_OF[${Regex.escape(value)}]")
     is RangeGrammar -> printlnWithOffset(offset, "RANGE[$from-$to]")
 }

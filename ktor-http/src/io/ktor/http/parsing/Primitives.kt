@@ -6,5 +6,5 @@ internal val digit = RawGrammar("\\d")
 internal val hex = digit or ('A' to 'F') or ('a' to 'f')
 
 internal val alphaDigit = alpha or digit
-internal val alphas = alpha then many(alpha)
-internal val digits = digit then many(digit)
+internal val alphas = atLeastOne(alpha)
+internal val digits = atLeastOne(digit)

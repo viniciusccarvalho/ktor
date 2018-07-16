@@ -11,14 +11,23 @@ internal interface SimpleGrammar {
 }
 
 internal class StringGrammar(val value: String) : Grammar()
-internal class NamedGrammar(val name: String, val grammar: Grammar) : Grammar()
-internal class SequenceGrammar(override val grammars: List<Grammar>) : Grammar(), ComplexGrammar
-internal class OrGrammar(override val grammars: List<Grammar>) : Grammar(), ComplexGrammar
-internal class MaybeGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
-internal class ManyGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
 internal class AnyOfGrammar(val value: String) : Grammar()
 internal class RangeGrammar(val from: Char, val to: Char) : Grammar()
 internal class RawGrammar(val value: String) : Grammar()
+
+internal class NamedGrammar(val name: String, val grammar: Grammar) : Grammar()
+
+internal class MaybeGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
+internal class ManyGrammar(override val grammar: Grammar) : Grammar(), SimpleGrammar
+internal class AtLeastOne(override val grammar: Grammar) : Grammar(), SimpleGrammar
+
+internal class SequenceGrammar(sourceGrammars: List<Grammar>) : Grammar(), ComplexGrammar {
+    override val grammars: List<Grammar> = sourceGrammars.flatten<SequenceGrammar>()
+}
+
+internal class OrGrammar(sourceGrammars: List<Grammar>) : Grammar(), ComplexGrammar {
+    override val grammars: List<Grammar> = sourceGrammars.flatten<OrGrammar>()
+}
 
 internal fun maybe(grammar: Grammar): Grammar = MaybeGrammar(grammar)
 internal fun maybe(block: GrammarBuilder.() -> Unit): () -> Grammar = { maybe(GrammarBuilder().apply(block).build()) }
@@ -32,8 +41,17 @@ internal infix fun Grammar.or(value: String): Grammar = this or StringGrammar(va
 internal infix fun String.or(grammar: Grammar): Grammar = StringGrammar(this) or grammar
 
 internal fun many(grammar: Grammar): Grammar = ManyGrammar(grammar)
+internal fun atLeastOne(grammar: Grammar): Grammar = AtLeastOne(grammar)
 
 internal fun Grammar.named(name: String): Grammar = NamedGrammar(name, this)
 
 internal fun anyOf(value: String): Grammar = AnyOfGrammar(value)
 internal infix fun Char.to(other: Char): Grammar = RangeGrammar(this, other)
+
+internal inline fun <reified T : ComplexGrammar> List<Grammar>.flatten(): List<Grammar> {
+    val result = mutableListOf<Grammar>()
+    forEach {
+        if (it is T) result += it.grammars else result += it
+    }
+    return result
+}
