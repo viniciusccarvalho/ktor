@@ -88,6 +88,7 @@ allprojects {
                 component {
                     target 'ios_arm64', 'ios_x64'
                     outputKinds = [KLIBRARY]
+                    extraOpts '--disable', 'devirtualization'
                 }
             } else {
                 resources.srcDir 'resources'
@@ -96,6 +97,12 @@ allprojects {
         test {
             kotlin.srcDir 'test'
             if (platform != 'native') resources.srcDir 'test-resources'
+            else {
+                component {
+                    target 'ios_arm64', 'ios_x64'
+                    extraOpts '--disable', 'devirtualization'
+                }
+            }
         }
     }
 
