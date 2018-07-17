@@ -9,7 +9,7 @@ if (platform == 'native') {
     publishing {
         repositories {
             maven {
-                url = 'https://dl.bintray.com/e5l/ktor'
+                url = 'https://dl.bintray.com/kotlin/ktor'
             }
         }
     }
