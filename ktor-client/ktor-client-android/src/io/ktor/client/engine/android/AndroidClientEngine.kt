@@ -30,7 +30,8 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
     override fun close() {
     }
 
-    private suspend fun AndroidHttpRequest.execute() = suspendCancellableCoroutine<AndroidHttpResponse> { cont ->
+    private suspend fun AndroidHttpRequest.execute(): AndroidHttpResponse {
+        val result = CompletableDeferred<AndroidHttpResponse>()
         val requestTime = Date()
 
         val url = URLBuilder().takeFrom(url).buildString()
@@ -46,10 +47,6 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
 
             headers.forEach { key, value ->
                 addRequestProperty(key, value.joinToString(";"))
-            }
-
-            if (!headers.contains(HttpHeaders.Connection)) {
-                addRequestProperty(HttpHeaders.Connection, "close")
             }
 
             if (this@execute.content !is OutgoingContent.NoContent) {
@@ -74,7 +71,7 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
             headerFields?.forEach { (key, values) -> key?.let { appendAll(it, values) } }
         }.build()
 
-        cont.resume(
+        result.complete(
             AndroidHttpResponse(
                 call, content, Job(),
                 responseHeaders, requestTime, Date(),
@@ -82,6 +79,7 @@ open class AndroidClientEngine(override val config: AndroidEngineConfig) : HttpC
                 connection
             )
         )
+        return result.await()
     }
 }
 
@@ -99,7 +97,7 @@ internal fun OutgoingContent.writeTo(stream: OutputStream) {
 }
 
 internal fun HttpURLConnection.content(dispatcher: CoroutineDispatcher): ByteReadChannel = try {
-    inputStream
+    inputStream.buffered()
 } catch (_: IOException) {
-    errorStream
-}?.toByteReadChannel(context = dispatcher) ?: ByteReadChannel.Empty
+    errorStream.buffered()
+}.toByteReadChannel(context = dispatcher)
