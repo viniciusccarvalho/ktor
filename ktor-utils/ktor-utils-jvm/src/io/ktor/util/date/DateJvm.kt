@@ -4,7 +4,27 @@ import java.util.*
 
 private val GMT_TIMEZONE = TimeZone.getTimeZone("GMT")
 
-actual fun GMTDate(timestamp: Long?): GMTDate = with(Calendar.getInstance(GMT_TIMEZONE, Locale.ROOT)!!) {
+actual fun GMTDate(timestamp: Long?): GMTDate = Calendar.getInstance(GMT_TIMEZONE, Locale.ROOT)!!.toDate(timestamp)
+
+actual fun GMTDate(
+    seconds: Int, minutes: Int, hours: Int, dayOfMonth: Int, month: Month, year: Int
+): GMTDate = (Calendar.getInstance(GMT_TIMEZONE, Locale.ROOT)!!).apply {
+    set(Calendar.SECOND, seconds)
+    set(Calendar.MINUTE, minutes)
+    set(Calendar.HOUR, hours)
+
+    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+    set(Calendar.MONTH, month.ordinal)
+    set(Calendar.YEAR, year)
+}.toDate(timestamp = null)
+
+/**
+ * Convert to [Date]
+ */
+fun GMTDate.toJvmDate(): Date = Calendar.getInstance(GMT_TIMEZONE, Locale.ROOT)!!.time!!
+
+private fun Calendar.toDate(timestamp: Long?): GMTDate {
     timestamp?.let { timeInMillis = it }
 
     val seconds = get(Calendar.SECOND)
@@ -14,7 +34,7 @@ actual fun GMTDate(timestamp: Long?): GMTDate = with(Calendar.getInstance(GMT_TI
     /**
      * from (SUN 1) (MON 2) .. (SAT 7) to (SUN 6) (MON 0) .. (SAT 5)
      */
-    val numberOfDay = (get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7
+    val numberOfDay = (get(Calendar.DAY_OF_WEEK) + 7 - 2) % 7
     val dayOfWeek = WeekDay.from(numberOfDay)
 
     val dayOfMonth = get(Calendar.DAY_OF_MONTH)
@@ -30,8 +50,3 @@ actual fun GMTDate(timestamp: Long?): GMTDate = with(Calendar.getInstance(GMT_TI
         timeInMillis
     )
 }
-
-/**
- * Convert to [Date]
- */
-fun GMTDate.toJvmDate(): Date = Calendar.getInstance(GMT_TIMEZONE, Locale.ROOT)!!.time!!

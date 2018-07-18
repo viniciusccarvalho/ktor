@@ -1,7 +1,6 @@
 package io.ktor.client.tests.features.cookies
 
 import io.ktor.client.engine.mock.*
-import io.ktor.client.features.cookies.*
 import io.ktor.client.request.*
 import io.ktor.client.response.*
 import io.ktor.client.tests.utils.*
