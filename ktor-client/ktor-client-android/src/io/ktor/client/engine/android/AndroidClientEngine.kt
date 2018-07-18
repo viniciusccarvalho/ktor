@@ -97,7 +97,7 @@ internal fun OutgoingContent.writeTo(stream: OutputStream) {
 }
 
 internal fun HttpURLConnection.content(dispatcher: CoroutineDispatcher): ByteReadChannel = try {
-    inputStream.buffered()
+    inputStream?.buffered()
 } catch (_: IOException) {
-    errorStream.buffered()
-}.toByteReadChannel(context = dispatcher)
+    errorStream?.buffered()
+}?.toByteReadChannel(context = dispatcher) ?: ByteReadChannel.Empty
