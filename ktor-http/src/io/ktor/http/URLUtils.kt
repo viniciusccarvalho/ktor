@@ -2,6 +2,8 @@ package io.ktor.http
 
 import io.ktor.util.*
 
+fun URLBuilder.takeFrom(stringUrl: String) = takeFrom(Url(stringUrl))
+
 fun URLBuilder.takeFrom(url: URLBuilder): URLBuilder {
     protocol = url.protocol
     host = url.host
