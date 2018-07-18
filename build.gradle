@@ -1,21 +1,13 @@
 buildscript {
+    ext.kotlin_repository = {
+        if (kotlin_version.endsWith('-SNAPSHOT')) return 'https://oss.sonatype.org/content/repositories/snapshots'
+        return 'http://dl.bintray.com/kotlin/kotlin-dev'
+    }()
+
     repositories {
         jcenter()
         maven { url 'https://plugins.gradle.org/m2/' }
-
-        if (kotlin_version.contains('-eap') || kotlin_version.contains('-rc')) {
-            if (kotlin_version.startsWith("1.1")) {
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1' }
-            } else if (kotlin_version.startsWith('1.2')) {
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-eap-1.2' }
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-dev' }
-            }
-        } else if (kotlin_version.contains('-dev')) {
-            maven { url 'http://dl.bintray.com/kotlin/kotlin-dev' }
-        } else if (kotlin_version.endsWith('-SNAPSHOT')) {
-            maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
-        }
-
+        maven { url kotlin_repository }
         maven { url 'https://dl.bintray.com/jetbrains/kotlin-native-dependencies' }
     }
 
@@ -25,8 +17,6 @@ buildscript {
         classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$bintray_plugin_version"
         classpath 'net.researchgate:gradle-release:2.4.0'
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:$dokka_version"
-
-        // native
         classpath "org.jetbrains.kotlin:kotlin-native-gradle-plugin:$kotlin_native_version"
     }
 }
@@ -54,22 +44,9 @@ allprojects {
 
     repositories {
 //        mavenLocal()
+        maven { url "https://kotlin.bintray.com/kotlinx/" }
+        maven { url kotlin_repository }
         jcenter()
-        if (kotlin_version.contains('-eap') || kotlin_version.contains('-rc')) {
-            if (kotlin_version.startsWith("1.1")) {
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1' }
-            } else if (kotlin_version.startsWith("1.2")) {
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-eap-1.2' }
-                maven { url 'http://dl.bintray.com/kotlin/kotlin-dev' }
-            }
-        } else if (kotlin_version.contains('-dev')) {
-            maven { url 'http://daal.bintray.com/kotlin/kotlin-dev' }
-        } else if (kotlin_version.endsWith('-SNAPSHOT')) {
-            maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
-        }
-
-        maven { url 'https://dl.bintray.com/e5l/kotlinx-io-test' }
-        maven { url 'https://dl.bintray.com/qwwdfsad/kotlinx' }
     }
 
     apply plugin: 'maven'
@@ -77,34 +54,8 @@ allprojects {
     apply plugin: "kotlin-platform-${platform}"
 
     apply from: rootProject.file("gradle/${platform}.gradle")
-    if (platform != 'native') {
-        apply from: rootProject.file('gradle/publish.gradle')
-    }
 
-    sourceSets {
-        main {
-            kotlin.srcDir 'src'
-            if (platform == 'native') {
-                component {
-                    target 'ios_arm64', 'ios_x64'
-                    outputKinds = [KLIBRARY]
-                    extraOpts '--disable', 'devirtualization'
-                }
-            } else {
-                resources.srcDir 'resources'
-            }
-        }
-        test {
-            kotlin.srcDir 'test'
-            if (platform != 'native') resources.srcDir 'test-resources'
-            else {
-                component {
-                    target 'ios_arm64', 'ios_x64'
-                    extraOpts '--disable', 'devirtualization'
-                }
-            }
-        }
-    }
+    if (platform != 'native') apply from: rootProject.file('gradle/publish.gradle')
 
     task sourceJar(type: Jar, dependsOn: classes) {
         classifier 'sources'

@@ -6,7 +6,7 @@ bintray {
     publish = true
 
     pkg {
-        userOrg = 'e5l'
+        userOrg = 'kotlin'
         repo = 'ktor'
         name = 'ktor'
 

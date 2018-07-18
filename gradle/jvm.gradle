@@ -1,4 +1,15 @@
 
+sourceSets {
+    main {
+        kotlin.srcDir 'src'
+        resources.srcDir 'resources'
+    }
+    test {
+        kotlin.srcDir 'test'
+        resources.srcDir 'test-resources'
+    }
+}
+
 task jarTest(type: Jar, dependsOn: testClasses) {
     from sourceSets.test.output
     classifier = 'test'
