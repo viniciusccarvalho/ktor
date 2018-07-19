@@ -1,12 +1,8 @@
-package io.ktor.client.features
+package io.ktor.client.features.cookies
 
 import io.ktor.http.*
 import java.util.*
 import java.util.concurrent.*
-
-/**
- * [CookiesStorage] that stores all the cookies in an in-memory map.
- */
 
 actual class AcceptAllCookiesStorage actual constructor() : CookiesStorage {
     private val data = ConcurrentHashMap<String, MutableMap<String, Cookie>>()
@@ -22,9 +18,10 @@ actual class AcceptAllCookiesStorage actual constructor() : CookiesStorage {
         data[host]?.set(cookie.name, cookie)
     }
 
+    /**
+     * TODO: fix concurrent init
+     */
     private fun init(host: String) {
-        if (!data.containsKey(host)) {
-            data[host] = mutableMapOf()
-        }
+        data.putIfAbsent(host, mutableMapOf())
     }
 }

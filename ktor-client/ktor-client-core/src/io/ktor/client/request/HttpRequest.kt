@@ -192,5 +192,5 @@ operator fun HttpRequestBuilder.Companion.invoke(
  * Sets the [HttpRequestBuilder.url] from [urlString].
  */
 fun HttpRequestBuilder.url(urlString: String): Unit {
-    url.takeFrom(urlString.parseUrl())
+    url.takeFrom(urlString)
 }

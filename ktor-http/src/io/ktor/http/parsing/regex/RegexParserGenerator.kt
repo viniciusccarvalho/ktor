@@ -1,4 +1,6 @@
-package io.ktor.http.parsing
+package io.ktor.http.parsing.regex
+
+import io.ktor.http.parsing.*
 
 internal fun Grammar.buildRegexParser(): Parser {
     val groups = mutableMapOf<String, MutableList<Int>>()

@@ -1,37 +1,14 @@
 package io.ktor.http
 
 import io.ktor.http.parsing.*
+import io.ktor.http.parsing.regex.*
+
+typealias URLParts = ParseResult
 
 /**
- * Construct [Url] from [String]
+ * Extract [URLParts] from [String]
  */
-fun Url(urlString: String): Url = urlString.parseUrl()
-
-/**
- * Parse [Url] from [CharSequence]
- * Note: only http(s) and ws(s) urls supported for now
- */
-fun String.parseUrl(): Url {
-    val parts = URL_PARSER.parse(this) ?: error("Invalid url format: $this")
-    return URLBuilder().apply {
-        protocol = URLProtocol.createOrDefault(parts["protocol"])
-        port = protocol.defaultPort
-        host = parts["host"]
-
-        if (parts.contains("encodedPath")) encodedPath = parts["encodedPath"]
-        parts.with("port") { port = it.toInt() }
-        parts.with("user") { user = it }
-        parts.with("password") { password = it }
-        parts.with("fragment") { fragment = it }
-
-        parts.with("parameters") { rawParams ->
-            val rawParameters = parseQueryString(rawParams)
-            rawParameters.forEach { key, values ->
-                parameters.appendAll(key, values)
-            }
-        }
-    }.build()
-}
+fun String.urlParts(): URLParts = URL_PARSER.parse(this) ?: error("Invalid url format: $this")
 
 /**
  * According to https://tools.ietf.org/html/rfc1738
@@ -62,9 +39,8 @@ private val encodedPath = atLeastOne("/" then pathSegment).named("encodedPath")
 private val fragment = ("#" then maybe(pathSegment).named("fragment"))
 
 private val URL_PARSER = grammar {
-    +protocol
-    +"://"
+    +maybe(protocol then "://")
     +maybe(auth)
-    +{ host then maybe(port) }
+    +maybe(host then maybe(port))
     +maybe(encodedPath then maybe("?" then parameters) then maybe(fragment))
 }.buildRegexParser()

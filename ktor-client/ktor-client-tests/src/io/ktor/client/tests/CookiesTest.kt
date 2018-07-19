@@ -2,7 +2,6 @@ package io.ktor.client.tests
 
 import io.ktor.client.*
 import io.ktor.client.engine.*
-import io.ktor.client.features.*
 import io.ktor.client.features.cookies.*
 import io.ktor.client.request.*
 import io.ktor.client.tests.utils.*
@@ -89,7 +88,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
     fun testConstant(): Unit = clientTest(factory) {
         config {
             install(HttpCookies) {
-                storage = ConstantCookieStorage(Cookie("id", "1"))
+                storage = ConstantCookiesStorage(Cookie("id", "1"))
             }
         }
 

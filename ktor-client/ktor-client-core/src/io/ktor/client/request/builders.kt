@@ -89,7 +89,7 @@ suspend inline fun <reified T> HttpClient.get(
     urlString: String,
     block: HttpRequestBuilder.() -> Unit = {}
 ): T = get {
-    url.takeFrom(urlString.parseUrl())
+    url.takeFrom(urlString)
     block()
 }
 
@@ -103,6 +103,6 @@ suspend inline fun <reified T> HttpClient.post(
     urlString: String,
     block: HttpRequestBuilder.() -> Unit = {}
 ): T = post {
-    url.takeFrom(urlString.parseUrl())
+    url.takeFrom(urlString)
     block()
 }

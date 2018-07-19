@@ -1,4 +1,4 @@
-package io.ktor.client.features
+package io.ktor.client.features.cookies
 
 import io.ktor.http.*
 
@@ -22,3 +22,9 @@ interface CookiesStorage {
     suspend fun addCookie(host: String, cookie: Cookie)
 }
 
+/**
+ * Runs a [block] of code, for all the cookies set in the specified [host].
+ */
+suspend inline fun CookiesStorage.forEach(host: String, block: (Cookie) -> Unit) {
+    get(host)?.forEach { block(it.value) }
+}
