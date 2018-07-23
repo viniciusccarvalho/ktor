@@ -7,7 +7,10 @@ fun Input.asStream(): InputStream = object : InputStream() {
 
     override fun read(): Int = tryPeek()
 
-    override fun read(buffer: ByteArray, offset: Int, length: Int): Int = readAvailable(buffer, offset, length)
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        if (this@asStream.endOfInput) return -1
+        return readAvailable(buffer, offset, length)
+    }
 
     override fun skip(count: Long): Long = discard(count)
 

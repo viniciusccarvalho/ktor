@@ -39,7 +39,7 @@ internal expect fun loadMimes(): List<Pair<String, ContentType>>
 private val mimes: List<Pair<String, ContentType>> = loadMimes()
 
 private val contentTypesByExtensions: Map<String, List<ContentType>> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-    mimes.asSequence().groupByPairs()
+    caseInsensitiveMap<List<ContentType>>().apply { putAll(mimes.asSequence().groupByPairs()) }
 }
 
 private val extensionsByContentType: Map<ContentType, List<String>> by lazy {
