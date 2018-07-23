@@ -1,6 +1,6 @@
 package io.ktor.tests.utils
 
-import io.ktor.cio.*
+import io.ktor.util.cio.*
 import io.ktor.util.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*

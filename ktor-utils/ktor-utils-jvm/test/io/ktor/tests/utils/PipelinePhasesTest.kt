@@ -1,6 +1,6 @@
 package io.ktor.tests.utils
 
-import io.ktor.pipeline.*
+import io.ktor.util.pipeline.*
 import org.junit.Test
 import kotlin.test.*
 

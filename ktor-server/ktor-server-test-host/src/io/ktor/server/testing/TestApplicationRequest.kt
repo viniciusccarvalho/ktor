@@ -8,6 +8,7 @@ import io.ktor.server.engine.*
 import io.ktor.util.*
 import kotlinx.coroutines.experimental.io.*
 import kotlinx.coroutines.experimental.io.ByteReadChannel.*
+import kotlinx.io.core.*
 
 class TestApplicationRequest(
         call: ApplicationCall,
@@ -106,7 +107,7 @@ fun TestApplicationRequest.setBody(boundary: String, values: List<PartData>): Un
                 val charset = headers[HttpHeaders.ContentType]?.let { ContentType.parse(it) }?.charset()
                         ?: Charsets.ISO_8859_1
 
-                append(it.streamProvider().reader(charset).readText())
+                append(it.streamProvider().readText(charset))
             }
             is PartData.FormItem -> append(it.value)
         }

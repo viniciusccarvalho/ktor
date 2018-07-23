@@ -1,6 +1,6 @@
 package io.ktor.client.engine.jetty
 
-import io.ktor.cio.*
+import io.ktor.util.cio.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.response.*
@@ -9,6 +9,7 @@ import io.ktor.http.*
 import io.ktor.http.HttpMethod
 import io.ktor.http.content.*
 import io.ktor.util.*
+import io.ktor.util.date.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
 import kotlinx.io.core.*
@@ -35,7 +36,7 @@ internal class JettyHttpRequest(
     override val content: OutgoingContent = requestData.body as OutgoingContent
 
     internal suspend fun execute(): HttpResponse {
-        val requestTime = Date()
+        val requestTime = GMTDate()
         val session = client.connect(url.host, url.port).apply {
             this.settings(SettingsFrame(emptyMap(), true), org.eclipse.jetty.util.Callback.NOOP)
         }

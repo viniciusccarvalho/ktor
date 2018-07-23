@@ -5,6 +5,7 @@ import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.request.*
 import io.ktor.server.testing.*
+import kotlinx.io.core.*
 import org.junit.Test
 import kotlin.test.*
 
@@ -33,14 +34,21 @@ class TestEngineMultipartTest {
             }
         }, setup = {
             addHeader(HttpHeaders.ContentType, contentType.toString())
-            setBody(boundary, listOf(PartData.FormItem(
-                    "plain field",
-                    dispose = {},
-                    partHeaders = headersOf(
+            setBody(
+                boundary, listOf(
+                    PartData.FormItem(
+                        "plain field",
+                        dispose = {},
+                        partHeaders = headersOf(
                             HttpHeaders.ContentDisposition,
-                            ContentDisposition.File.withParameter(ContentDisposition.Parameters.Name, "field1").toString()
+                            ContentDisposition.File.withParameter(
+                                ContentDisposition.Parameters.Name,
+                                "field1"
+                            ).toString()
+                        )
                     )
-            )))
+                )
+            )
         })
     }
 
@@ -56,23 +64,26 @@ class TestEngineMultipartTest {
 
                 assertEquals("fileField", file.name)
                 assertEquals("file.txt", file.originalFileName)
-                assertEquals("file content", file.streamProvider().reader().readText())
+                assertEquals("file content", file.streamProvider().readText())
 
                 file.dispose()
             }
         }, setup = {
             addHeader(HttpHeaders.ContentType, contentType.toString())
-            setBody(boundary, listOf(PartData.FileItem(
-                    streamProvider = { "file content".toByteArray().inputStream() },
-                    dispose = {},
-                    partHeaders = headersOf(
+            setBody(
+                boundary, listOf(
+                    PartData.FileItem(
+                        streamProvider = { buildPacket { writeStringUtf8("file content") } },
+                        dispose = {}, partHeaders = headersOf(
                             HttpHeaders.ContentDisposition,
                             ContentDisposition.File
-                                    .withParameter(ContentDisposition.Parameters.Name, "fileField")
-                                    .withParameter(ContentDisposition.Parameters.FileName, "file.txt")
-                                    .toString()
+                                .withParameter(ContentDisposition.Parameters.Name, "fileField")
+                                .withParameter(ContentDisposition.Parameters.FileName, "file.txt")
+                                .toString()
+                        )
                     )
-            )))
+                )
+            )
         })
     }
 

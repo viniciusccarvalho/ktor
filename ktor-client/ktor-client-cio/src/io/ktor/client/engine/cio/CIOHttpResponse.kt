@@ -5,13 +5,14 @@ import io.ktor.client.request.*
 import io.ktor.client.response.*
 import io.ktor.http.*
 import io.ktor.http.cio.*
+import io.ktor.util.date.*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.io.*
 import java.util.*
 
 internal class CIOHttpResponse(
     request: HttpRequest,
-    /*override*/ val requestTime: Date,
+    override val requestTime: GMTDate,
     override val content: ByteReadChannel,
     private val response: Response
 ) : HttpResponse {
@@ -25,7 +26,7 @@ internal class CIOHttpResponse(
         }
     }
 
-    /*override*/ val responseTime: Date = Date()
+    override val responseTime: GMTDate = GMTDate()
 
     override val executionContext: CompletableDeferred<Unit> = CompletableDeferred()
 

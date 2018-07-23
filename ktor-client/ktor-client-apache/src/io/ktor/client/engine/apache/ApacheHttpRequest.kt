@@ -6,10 +6,10 @@ import io.ktor.client.response.*
 import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.util.*
+import io.ktor.util.date.*
 import kotlinx.coroutines.experimental.*
 import org.apache.http.concurrent.*
 import org.apache.http.impl.nio.client.*
-import java.util.*
 import java.util.concurrent.atomic.*
 
 
@@ -41,7 +41,7 @@ private suspend fun CloseableHttpAsyncClient.sendRequest(
     dispatcher: CoroutineDispatcher
 ): ApacheHttpResponse = suspendCancellableCoroutine { continuation ->
     val completed = AtomicBoolean(false)
-    val requestTime = Date()
+    val requestTime = GMTDate()
     val parent = CompletableDeferred<Unit>()
 
     val consumer = ApacheResponseConsumer(dispatcher, parent) { response, body ->
