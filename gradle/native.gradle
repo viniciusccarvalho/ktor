@@ -23,8 +23,3 @@ dependencies {
     implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-io-native', version: kotlinx_io_version
 }
 
-afterEvaluate {
-    apply from: rootProject.file('gradle/publish.gradle')
-}
-
-apply from: rootProject.file('gradle/bintray.gradle')

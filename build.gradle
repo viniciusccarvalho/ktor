@@ -54,8 +54,7 @@ allprojects {
     apply plugin: "kotlin-platform-${platform}"
 
     apply from: rootProject.file("gradle/${platform}.gradle")
-
-    if (platform != 'native') apply from: rootProject.file('gradle/publish.gradle')
+    apply from: rootProject.file('gradle/publish.gradle')
 
     task sourceJar(type: Jar, dependsOn: classes) {
         classifier 'sources'
